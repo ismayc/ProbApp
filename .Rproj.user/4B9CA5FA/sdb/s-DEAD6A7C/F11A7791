@@ -1,0 +1,16 @@
+{
+    "contents" : "\n# This is the user-interface definition of a Shiny web application.\n# You can find out more about building applications with Shiny here:\n# \n# http://www.rstudio.com/shiny/\n#\n\nlibrary(shiny)\nlibrary(ggplot2)\n\nshinyUI(pageWithSidebar(\n  \n  # Application title\n  headerPanel(\"Calculator for Probability Distributions\"),\n  \n  # Sidebar\n  sidebarPanel(\n    wellPanel(radioButtons(\"distType\",strong(\"Distribution Type:\"),\n                           list(\"Discrete\",\"Continuous\"),\n                           selected=\"Discrete\") ),\n    wellPanel(uiOutput(\"distName\") ),\n    \n    #Select output type\n    wellPanel(radioButtons(\"outType\", strong(\"Output Type:\"), \n                           list(\"Formulas\", \"PDF/Quantile\" = \"PDF\", \n                                \"CDF\", \"Probability\", \"Mean\", \"Variance\"), \n                           selected=\"Probability\"))\n  ),\n  \n  # Output results of calculations & plots\n  mainPanel(\n    withMathJax(),\n    uiOutput(\"formulas\"),\n    \n    uiOutput(\"param1\"),\n    uiOutput(\"param2\"),\n    uiOutput(\"param3\"),\n    \n    uiOutput(\"meanCalc\"),\n    uiOutput(\"varCalc\"),\n    \n    plotOutput(\"distribPlot\"),\n    \n    uiOutput(\"percentile\"),\n    uiOutput(\"percentBox\"),\n    uiOutput(\"percentCalc\"),\n    uiOutput(\"fixedVal1\"),\n    uiOutput(\"fixedVal2\"),\n\n    \n    uiOutput(\"distribCalc\"),\n    uiOutput(\"probTypeSelect\"),\n    uiOutput(\"probCalc\")\n    \n  )\n)\n)\n",
+    "created" : 1413294789902.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "3992580360",
+    "id" : "F11A7791",
+    "lastKnownWriteTime" : 1408735430,
+    "path" : "C:/Users/ismayc/Desktop/Ripon Google Drive/Logan Research/Probability/Shiny/ProbAppOnline/ui.R",
+    "project_path" : "ui.R",
+    "properties" : {
+    },
+    "source_on_save" : false,
+    "type" : "r_source"
+}
