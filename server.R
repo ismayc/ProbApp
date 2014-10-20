@@ -1243,7 +1243,7 @@ shinyServer(function(input, output, session) {
                                            (input$a + input$b)/2
              )), 
              
-             "bern" = withMathJax(sprintf("Mean is $$\\mathbb{E}(X) = %.04f$$",
+             "bern" = withMathJax(sprintf("Mean is $$\\mathbb{E}(X) = p = %.04f$$",
                                           input$p
              )), 
              
