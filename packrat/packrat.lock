@@ -6,21 +6,28 @@ Repos: CRAN=http://cran.rstudio.com/
 Package: R6
 Source: CRAN
 Version: 2.0
+Hash: a7fd0cf10401cde9177f1a685f72d15a
 
 Package: RColorBrewer
 Source: CRAN
 Version: 1.0-5
 Hash: 6a849b729bec970204ca88b96906adbc
 
+Package: RCurl
+Source: CRAN
+Version: 1.95-4.3
+Hash: 158377109f939084a72f240125f821d3
+Requires: bitops
+
 Package: RJSONIO
 Source: CRAN
-Version: 1.2-0.2
-Hash: f4aea783dfb279b89a0d735727fb46c5
+Version: 1.3-0
+Hash: 8b1341dfd547c90ed4b3365d5aa46a7b
 
 Package: Rcpp
 Source: CRAN
-Version: 0.11.2
-Hash: ef2b1a5e45d1461bd720e4ebbe48e601
+Version: 0.11.3
+Hash: d9cc0a13885961b2d004cf73b0fb68dd
 
 Package: bitops
 Source: CRAN
@@ -29,9 +36,9 @@ Hash: cb26464a8321628636b547518994c931
 
 Package: caTools
 Source: CRAN
-Version: 1.17
+Version: 1.17.1
+Hash: bb5fdc266f716b8a289a4f92007d53e3
 Requires: bitops
-Hash: e350bf43b27772012b530ccdf2e34f4d
 
 Package: colorspace
 Source: CRAN
@@ -51,8 +58,8 @@ Hash: e4bf0e79b15a352510aff0de905d31e2
 Package: ggplot2
 Source: CRAN
 Version: 1.0.0
-Requires: digest, gtable, plyr, proto, reshape2, scales
 Hash: c8bff66238347472f08b6a35608539ff
+Requires: digest, gtable, plyr, proto, reshape2, scales
 
 Package: gtable
 Source: CRAN
@@ -61,31 +68,31 @@ Hash: 0cf4a2b54c02b35dec7e74a8ebed12a0
 
 Package: htmltools
 Source: CRAN
-Version: 0.2.4
+Version: 0.2.6
+Hash: 2c87108d130de261ac3c468d3316ae42
 Requires: digest
-Hash: 88df1d8bc3728256408aab4d416959d1
 
 Package: httpuv
 Source: CRAN
 Version: 1.3.0
+Hash: 156d2cdf8a183360610376b68a5dd435
 Requires: Rcpp
-Hash: 7244bf7093e9c6c1ab23ddab020f197f
 
 Package: labeling
 Source: CRAN
-Version: 0.2
-Hash: 25f63495dfb737e67bd75fc1eb58ff2c
+Version: 0.3
+Hash: 568a992912caf7eeddfb121924154047
 
 Package: mime
 Source: CRAN
-Version: 0.1.1
-Hash: 28ee6ae37bab73846b0a6cc44e797069
+Version: 0.2
+Hash: 9179db921fcb2e5be44e217042ed06bc
 
 Package: munsell
 Source: CRAN
 Version: 0.4.2
-Requires: colorspace
 Hash: fa8af6d040041439b249351e9d16ae9a
+Requires: colorspace
 
 Package: packrat
 Source: github
@@ -99,8 +106,8 @@ GithubSha1: ee57b7e7ba891d23079b12f1ff5106d0db0594e5
 Package: plyr
 Source: CRAN
 Version: 1.8.1
+Hash: 6a287219196e18bc6261dc11b41b1ca0
 Requires: Rcpp
-Hash: be21bad411e628f810a92212e17b5be7
 
 Package: proto
 Source: CRAN
@@ -110,20 +117,30 @@ Hash: 668a9e87cedbdc5f56c396edf1bd2648
 Package: reshape2
 Source: CRAN
 Version: 1.4
+Hash: e50809918ebb73dff47de17d36d12975
 Requires: Rcpp, plyr, stringr
-Hash: b210925e978fd52ad5eb0822a353e7ce
 
 Package: scales
 Source: CRAN
 Version: 0.2.4
-Requires: RColorBrewer, dichromat, labeling, munsell, plyr
 Hash: b8b1af97bd07818605223060386b00dd
+Requires: RColorBrewer, dichromat, labeling, munsell, plyr
 
 Package: shiny
 Source: CRAN
-Version: 0.10.0
-Requires: RJSONIO, caTools, digest, htmltools, httpuv, xtable
-Hash: a89e44734cbf52535888e5725c130ec5
+Version: 0.10.2.1
+Hash: f737d84e9db975b8fe73fa68e5e6802b
+Requires: R6, RJSONIO, digest, htmltools, httpuv, mime, xtable
+
+Package: shinyapps
+Source: github
+Version: 0.3.60
+Hash: 8b9f98d9bb13d299e763d4142c14639162aca8a2
+Requires: RCurl, RJSONIO, digest
+GithubRepo: shinyapps
+GithubUsername: rstudio
+GithubRef: v0.98.1000
+GithubSha1: 8b9f98d9bb13d299e763d4142c14639162aca8a2
 
 Package: stringr
 Source: CRAN
@@ -132,5 +149,5 @@ Hash: cdde0cfa0f52cffeaca23a11a3899779
 
 Package: xtable
 Source: CRAN
-Version: 1.7-3
-Hash: af110253b140f3f7199c0cac37536a2f
+Version: 1.7-4
+Hash: 7b30b5ca6c7ae80c4f916502e3ad0237
