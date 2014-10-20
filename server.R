@@ -936,7 +936,7 @@ shinyServer(function(input, output, session) {
   output$percentile <- renderUI({
     if(is.null(input$outType) || is.null(input$distrib)) return ()
     if( (input$outType == "PDF")) #& (input$distrib == "norm") )
-      radioButtons("percentile", "\nCalculate:", selected = "quant", inline = TRUE,
+      radioButtons("percentile", "\nCalculate:", selected = "pdf", inline = TRUE,
                    c("Quantile" = "quant",
                      "PDF" = "pdf"))
   })
