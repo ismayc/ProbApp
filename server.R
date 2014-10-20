@@ -88,17 +88,17 @@ shinyServer(function(input, output, session) {
     if(input$outType != "Formulas"){
       switch(input$outType,
              PDF = if(input$percentile == "quant" && !is.null(input$percentile)) return () 
-                   else numericInput("xFixed", withMathJax('Enter a discrete value (\\(x\\)):'), 4.0),
+                   else numericInput("xFixed", withMathJax('Enter a discrete value (\\(x\\)):'), 3.0),
              CDF = numericInput("xFixed", withMathJax('Enter a discrete value (\\(x\\)):'), 1.0),
              Probability = switch(input$probType,
                                   "between" = numericInput("x1", 
-                                                           withMathJax('Enter lower value (\\(x_1\\)):'), 4),
+                                                           withMathJax('Enter lower value (\\(x_1\\)):'), 3),
                                   "lowerTail" = numericInput("xFixed", 
-                                                             withMathJax('Enter a discrete value (\\(x\\)):'), 4),
+                                                             withMathJax('Enter a discrete value (\\(x\\)):'), 3),
                                   "upperTail" = numericInput("xFixed", 
-                                                             withMathJax('Enter a discrete value (\\(x\\)):'), 4),
+                                                             withMathJax('Enter a discrete value (\\(x\\)):'), 3),
                                   "extreme" = numericInput("x1", 
-                                                           withMathJax('Enter lower value (\\(x_1\\)):'), 4),
+                                                           withMathJax('Enter lower value (\\(x_1\\)):'), 3),
                                   NULL 
              )
       )
@@ -249,11 +249,11 @@ shinyServer(function(input, output, session) {
                                  distribName = "Poisson", numArgs = 1),
              
              #Continuous
-             "norm" = normal_prob_area_plot(input$xFixed, input$xFixed, 
+             "norm" = normal_prob_area_plot(input$xFixed-sqrt(as.numeric(input$normVar))/50.0, input$xFixed+sqrt(as.numeric(input$normVar))/50.0, 
                                             mean = input$normMean, sd = sqrt(as.numeric(input$normVar))),
-             "unif" = uniform_prob_area_plot(input$xFixed, input$xFixed, min = input$theta1, max = input$theta2),
-             "exp" = exp_prob_area_plot(input$xFixed, input$xFixed, shape = 1, scale = input$beta),
-             "gam" = gamma_prob_area_plot(input$xFixed, input$xFixed, shape = input$alpha, scale = input$beta),
+             "unif" = uniform_prob_area_plot(input$xFixed-(input$theta2-input$theta1)/500.0, input$xFixed+(input$theta2-input$theta1)/500.0, min = input$theta1, max = input$theta2),
+             "exp" = exp_prob_area_plot(input$xFixed-input$beta/100.0, input$xFixed+input$beta/100.0, shape = 1, scale = input$beta),
+             "gam" = gamma_prob_area_plot(input$xFixed-input$beta/50.0, input$xFixed+input$beta/50.0, shape = input$alpha, scale = input$beta),
              #NULL
       )
     } 
@@ -451,11 +451,18 @@ shinyServer(function(input, output, session) {
                                  mainLabel = "Cumulative Distribution Function"),
              
              #Continuous
-             "norm" = normal_prob_CDF_plot(input$xFixed, mean = input$normMean, sd = sqrt(input$normVar)),
-             "unif" = uniform_prob_CDF_plot(input$xfixed, min = input$theta1, max = input$theta2),
-             "exp" = exp_prob_CDF_plot(input$xFixed, shape = 1, scale = input$beta),
-             "gam" = gamma_prob_CDF_plot(input$xFixed, shape = input$alpha, scale = input$beta),
+#              "norm" = normal_prob_CDF_plot(input$xFixed, mean = input$normMean, sd = sqrt(input$normVar)),
+#              "unif" = uniform_prob_CDF_plot(input$xfixed, min = input$theta1, max = input$theta2),
+#              "exp" = exp_prob_CDF_plot(input$xFixed, shape = 1, scale = input$beta),
+#              "gam" = gamma_prob_CDF_plot(input$xFixed, shape = input$alpha, scale = input$beta),
              #NULL
+             "norm" = normal_prob_CDF_plot(input$xFixed-sqrt(as.numeric(input$normVar))/50.0, input$xFixed+sqrt(as.numeric(input$normVar))/50.0, 
+                                            mean = input$normMean, sd = sqrt(as.numeric(input$normVar))),
+             "unif" = uniform_prob_CDF_plot(input$xFixed-(input$theta2-input$theta1)/500.0, input$xFixed+(input$theta2-input$theta1)/500.0, min = input$theta1, max = input$theta2),
+             "exp" = exp_prob_CDF_plot(input$xFixed-input$beta/100.0, input$xFixed+input$beta/100.0, shape = 1, scale = input$beta),
+             "gam" = gamma_prob_CDF_plot(input$xFixed-input$beta/50.0, input$xFixed+input$beta/50.0, shape = input$alpha, scale = input$beta),
+             #NULL
+             
       )      
     } 
     #####Need to turn into function calls
@@ -799,7 +806,7 @@ shinyServer(function(input, output, session) {
                                          )
              )),
              #Continuous
-             "exp" = withMathJax(sprintf("$$\\mathbb{P}(X =  %.f ) = 0 \\\\ f(X =  %.f ) = %.04f$$", 
+             "exp" = withMathJax(sprintf("$$\\mathbb{P}(X =  %.03f ) = 0 \\\\ f(X =  %.03f ) = %.04f$$", 
                                          input$xFixed,  
                                          input$xFixed,
                                          dgamma(as.numeric(input$xFixed), 
@@ -807,7 +814,7 @@ shinyServer(function(input, output, session) {
                                                 scale = as.numeric(input$beta)
                                          )
              )),
-             "gam" = withMathJax(sprintf("$$\\mathbb{P}(X =  %.f ) = 0 \\\\ f(X =  %.f ) = %.04f$$", 
+             "gam" = withMathJax(sprintf("$$\\mathbb{P}(X =  %.03f ) = 0 \\\\ f(X =  %.03f ) = %.04f$$", 
                                          input$xFixed,  
                                          input$xFixed,
                                          dgamma(as.numeric(input$xFixed), 
@@ -815,7 +822,7 @@ shinyServer(function(input, output, session) {
                                                 scale = as.numeric(input$beta)
                                          )
              )),
-             "norm" = withMathJax(sprintf("$$\\mathbb{P}(X =  %.f ) = 0 \\\\ f(X =  %.f ) = %.04f$$", 
+             "norm" = withMathJax(sprintf("$$\\mathbb{P}(X =  %.03f ) = 0 \\\\ f(X =  %.03f ) = %.04f$$", 
                                           input$xFixed,  
                                           input$xFixed,
                                           dnorm(as.numeric(input$xFixed), 
@@ -823,7 +830,7 @@ shinyServer(function(input, output, session) {
                                                 sd = sqrt(as.numeric(input$normVar))
                                           )
              )),
-             "unif" = withMathJax(sprintf("$$\\mathbb{P}(X =  %.f ) = 0 \\\\ f(X =  %.f ) = %.04f$$", 
+             "unif" = withMathJax(sprintf("$$\\mathbb{P}(X =  %.03f ) = 0 \\\\ f(X =  %.03f ) = %.04f$$", 
                                           input$xFixed,  
                                           input$xFixed,
                                           dunif(as.numeric(input$xFixed), 
