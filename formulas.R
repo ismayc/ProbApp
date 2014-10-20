@@ -68,7 +68,7 @@ negBinForm <- withMathJax(
 poiForm <- withMathJax(
   h4(strong("Poisson Distribution")),
   helpText('Support is $$ x \\in \\{ 0, 1, 2, \\ldots \\}$$'),
-  helpText('PDF is $$f(x) = \\mathbb{P}(X = x) = e^{-\\lambda}\\cdot \\frac{\\lambda^n}{x!}$$'),
+  helpText('PDF is $$f(x) = \\mathbb{P}(X = x) = e^{-\\lambda}\\cdot \\frac{\\lambda^x}{x!}$$'),
   helpText('CDF is $$F(x) =  \\mathbb{P} (X \\le x) = \\sum_{i \\, \\le \\, x} \\mathbb{P}(X = i)$$'),
   helpText('Mean is $$\\mathbb{E}(X) = \\lambda$$'),
   helpText('Variance is $$\\mathbb{V}(X) = \\lambda$$')

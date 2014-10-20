@@ -1,4 +1,8 @@
 name: ProbApp
 account: ismay
+<<<<<<< HEAD
 bundleId: 66382
+=======
+bundleId: 43986
+>>>>>>> 51ce946072059db9f6ea5292c7335a9af7369662
 url: http://ismay.shinyapps.io/ProbApp

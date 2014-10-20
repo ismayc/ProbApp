@@ -294,6 +294,5 @@ gamma_prob_CDF_plot <- function(lb, ub = shape + 10 * scale, shape = 1, scale = 
                           if(limits[2] - limits[1] <= 15) seq(ceiling(limits[1]), ceiling(limits[2]), 1)
                         else seq(ceiling(limits[1]), ceiling(limits[2]), ceiling((limits[2] - limits[1])/15))
    )
-   + scale_fill_manual(values=c("black"))
-   + guides(fill=FALSE))
+  )
 }

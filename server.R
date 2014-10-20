@@ -96,9 +96,9 @@ shinyServer(function(input, output, session) {
                                   "lowerTail" = numericInput("xFixed", 
                                                              withMathJax('Enter a discrete value (\\(x\\)):'), 3),
                                   "upperTail" = numericInput("xFixed", 
-                                                             withMathJax('Enter a discrete value (\\(x\\)):'), 3),
+                                                             withMathJax('Enter a discrete value (\\(x\\)):'), 4),
                                   "extreme" = numericInput("x1", 
-                                                           withMathJax('Enter lower value (\\(x_1\\)):'), 3),
+                                                           withMathJax('Enter lower value (\\(x_1\\)):'), 4),
                                   NULL 
              )
       )
