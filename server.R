@@ -28,8 +28,8 @@ shinyServer(function(input, output, session) {
       )
     } else if(input$distType=="Continuous"){
       radioButtons("distrib","",
-                   selected="exp",
-                   list(#"Beta"="beta",
+                   selected="beta",
+                   list("Beta"="beta",
                      #"Cauchy"="cauchy",
                      #"Chi-squared"="chisq",
                      "Exponential"="exp",
@@ -76,6 +76,7 @@ shinyServer(function(input, output, session) {
              nbin = negBinForm,
              poi = poiForm,
              #Continuous
+             beta = betaForm,
              exp = expForm,
              gam = gamForm,
              norm = normForm,
@@ -86,21 +87,27 @@ shinyServer(function(input, output, session) {
   
   #Prompt for first input value
   output$fixedVal1 <- renderUI({
-    if(is.null(input$probType)) return ()
+    if(is.null(input$probType) || is.null(input$distrib)) return ()
     if(input$outType != "Formulas"){
       switch(input$outType,
              PDF = if(input$percentile == "quant" && !is.null(input$percentile)) return () 
-                   else numericInput("xFixed", withMathJax('Enter a discrete value (\\(x\\)):'), 3.0),
-             CDF = numericInput("xFixed", withMathJax('Enter a discrete value (\\(x\\)):'), 1.0),
+                   else numericInput("xFixed", withMathJax('Enter a discrete value (\\(x\\)):'), 
+                                     ifelse(input$distrib=="beta",0.5,3.0)),
+             CDF = numericInput("xFixed", withMathJax('Enter a discrete value (\\(x\\)):'), 
+                                ifelse(input$distrib=="beta",0.5,1.0)),
              Probability = switch(input$probType,
                                   "between" = numericInput("x1", 
-                                                           withMathJax('Enter lower value (\\(x_1\\)):'), 3),
+                                                           withMathJax('Enter lower value (\\(x_1\\)):'), 
+                                                           ifelse(input$distrib=="beta",0.5,3)),
                                   "lowerTail" = numericInput("xFixed", 
-                                                             withMathJax('Enter a discrete value (\\(x\\)):'), 3),
+                                                             withMathJax('Enter a discrete value (\\(x\\)):'), 
+                                                             ifelse(input$distrib=="beta",0.5,3)),
                                   "upperTail" = numericInput("xFixed", 
-                                                             withMathJax('Enter a discrete value (\\(x\\)):'), 4),
+                                                             withMathJax('Enter a discrete value (\\(x\\)):'),
+                                                             ifelse(input$distrib=="beta",0.7,4)),
                                   "extreme" = numericInput("x1", 
-                                                           withMathJax('Enter lower value (\\(x_1\\)):'), 4),
+                                                           withMathJax('Enter lower value (\\(x_1\\)):'),
+                                                           ifelse(input$distrib=="beta",0.5,3)),
                                   NULL 
              )
       )
@@ -114,10 +121,12 @@ shinyServer(function(input, output, session) {
       switch(input$outType, 
              Probability = switch(input$probType,
                                   "between" = numericInput("x2", 
-                                                           withMathJax('Enter upper value (\\(x_2\\)):'), 6,
+                                                           withMathJax('Enter upper value (\\(x_2\\)):'), 
+                                                           ifelse(input$distrib=="beta",0.7,6),
                                                            min = input$x1 + 1),
                                   "extreme" = numericInput("x2", 
-                                                           withMathJax('Enter upper value (\\(x_2\\)):'), 6,
+                                                           withMathJax('Enter upper value (\\(x_2\\)):'), 
+                                                           ifelse(input$distrib=="beta",0.7,3),
                                                            min = input$x1 + 1),
                                   NULL
              ),
@@ -150,6 +159,8 @@ shinyServer(function(input, output, session) {
                                   withMathJax('Enter the total number of events (\\(N\\)) i.e. total number of balls:'), 10,
                                   step=1, min=1),
              #Continuous
+             beta = numericInput("beta", withMathJax('Enter the shape parameter of the distribution (\\(\\beta\\)):'), 5.0,
+                                 min = 0),
              exp = numericInput("beta", withMathJax('Enter the scale parameter of the distribution (\\(\\beta\\)):'), 5.0,
                                 min = 0),
              gam = numericInput("beta", withMathJax('Enter the scale parameter of the distribution (\\(\\beta\\)):'), 5.0,
@@ -177,6 +188,8 @@ shinyServer(function(input, output, session) {
                                   step=1, min=0),
                                   #, max = input$numEvents - 1),
              #Continuous
+             beta = numericInput("alpha", withMathJax('Enter the shape parameter of the distribution (\\(\\alpha\\)):'), 2.0,
+                                 min = 0),
              gam = numericInput("alpha", withMathJax('Enter the shape parameter of the distribution (\\(\\alpha\\)):'), 2.0,
                                 min = 0),
              norm = numericInput("normVar", withMathJax('Enter the variance of the distribution (\\(\\sigma^2\\)):'), 1.0,
@@ -251,6 +264,9 @@ shinyServer(function(input, output, session) {
                                  distribName = "Poisson", numArgs = 1),
              
              #Continuous
+             "beta" = beta_prob_area_plot(input$xFixed-sqrt(as.numeric(input$alpha)*as.numeric(input$beta)/((as.numeric(input$alpha) + as.numeric(input$beta))^2*(as.numeric(input$alpha)+as.numeric(input$beta)+1)))/50.0,
+                                          input$xFixed+sqrt(as.numeric(input$alpha)*as.numeric(input$beta)/((as.numeric(input$alpha) + as.numeric(input$beta))^2*(as.numeric(input$alpha)+as.numeric(input$beta)+1)))/50.0,
+                                          shape1 = input$alpha, shape2 = input$beta),
              "norm" = normal_prob_area_plot(input$xFixed-sqrt(as.numeric(input$normVar))/50.0, input$xFixed+sqrt(as.numeric(input$normVar))/50.0, 
                                             mean = input$normMean, sd = sqrt(as.numeric(input$normVar))),
              "unif" = uniform_prob_area_plot(input$xFixed-(input$theta2-input$theta1)/500.0, input$xFixed+(input$theta2-input$theta1)/500.0, min = input$theta1, max = input$theta2),
@@ -391,6 +407,9 @@ shinyServer(function(input, output, session) {
       + guides(fill=FALSE),
       
       #Continuous
+      "beta" = beta_prob_area_plot(0, qbeta(as.numeric(input$quantile), shape1 = as.numeric(input$alpha), shape2 = as.numeric(input$beta)),
+                                   shape1 = as.numeric(input$alpha), shape2 = as.numeric(input$beta)
+      ),
       "norm" = normal_prob_area_plot(floor(as.numeric(input$normMean) - 4 * sqrt(as.numeric(input$normVar))), 
                                      qnorm(as.numeric(input$quantile), as.numeric(input$normMean), sqrt(as.numeric(input$normVar))), 
                                      mean = as.numeric(input$normMean), sd = sqrt(as.numeric(input$normVar))
@@ -465,6 +484,9 @@ shinyServer(function(input, output, session) {
 #              "exp" = exp_prob_CDF_plot(input$xFixed, shape = 1, scale = input$beta),
 #              "gam" = gamma_prob_CDF_plot(input$xFixed, shape = input$alpha, scale = input$beta),
              #NULL
+             "beta" = beta_prob_CDF_plot(input$xFixed-sqrt(as.numeric(input$alpha)*as.numeric(input$beta)/((as.numeric(input$alpha) + as.numeric(input$beta))^2*(as.numeric(input$alpha)+as.numeric(input$beta)+1)))/50.0,
+                             input$xFixed+sqrt(as.numeric(input$alpha)*as.numeric(input$beta)/((as.numeric(input$alpha) + as.numeric(input$beta))^2*(as.numeric(input$alpha)+as.numeric(input$beta)+1)))/50.0,
+                             shape1 = input$alpha, shape2 = input$beta),
              "norm" = normal_prob_CDF_plot(input$xFixed-sqrt(as.numeric(input$normVar))/50.0, input$xFixed+sqrt(as.numeric(input$normVar))/50.0, 
                                             mean = input$normMean, sd = sqrt(as.numeric(input$normVar))),
              "unif" = uniform_prob_CDF_plot(input$xFixed-(input$theta2-input$theta1)/500.0, input$xFixed+(input$theta2-input$theta1)/500.0, min = input$theta1, max = input$theta2),
@@ -474,6 +496,7 @@ shinyServer(function(input, output, session) {
              "gam" = gamma_prob_CDF_plot(input$xFixed-input$beta/50.0, input$xFixed+input$beta/50.0, shape = input$alpha, scale = input$beta,
                                          limits = c(0, qgamma(0.999, shape = as.numeric(input$alpha), 
                                                               scale = as.numeric(input$beta)))),
+
              #NULL
              
       )      
@@ -742,6 +765,18 @@ shinyServer(function(input, output, session) {
                                                                 extreme = TRUE),
                              #NULL
              ),
+             "beta" = switch(input$probType,
+                            "between" = beta_prob_area_plot(input$x1, input$x2, 
+                                                           shape1 = input$alpha, shape2 = input$beta),
+                            "lowerTail" = beta_prob_area_plot(0, input$xFixed, 
+                                                             shape1 = input$alpha, shape2= input$beta),
+                            "upperTail" = beta_prob_area_plot(input$xFixed, 1,
+                                                             shape1 = input$alpha, shape2 = input$beta),
+                            "extreme" = beta_prob_area_plot(input$x1, input$x2, 
+                                                           shape1 = input$alpha, shape2 = input$beta, 
+                                                           extreme = TRUE),
+                            #NULL
+             ),             
              "exp" = switch(input$probType,
                             "between" = exp_prob_area_plot(input$x1, input$x2, 
                                                            shape = 1, scale = input$beta),
@@ -832,6 +867,14 @@ shinyServer(function(input, output, session) {
                                          )
              )),
              #Continuous
+             "beta" = withMathJax(sprintf("$$\\mathbb{P}(X =  %.03f ) = 0 \\\\ f(X =  %.03f ) = %.04f$$", 
+                                         input$xFixed,  
+                                         input$xFixed,
+                                         dbeta(as.numeric(input$xFixed), 
+                                                shape1 = as.numeric(input$alpha),
+                                                shape2 = as.numeric(input$beta)
+                                         )
+             )),
              "exp" = withMathJax(sprintf("$$\\mathbb{P}(X =  %.03f ) = 0 \\\\ f(X =  %.03f ) = %.04f$$", 
                                          input$xFixed,  
                                          input$xFixed,
@@ -928,6 +971,14 @@ shinyServer(function(input, output, session) {
              )),
              
              #Continuous
+             "beta" =  withMathJax(sprintf("$$F(%.03f) = \\mathbb{P}(X \\leq  %.03f ) = %.04f$$", 
+                                          input$xFixed, 
+                                          input$xFixed,
+                                          pbeta(as.numeric(input$xFixed), 
+                                                 shape1 = as.numeric(input$alpha),
+                                                 shape2 = as.numeric(input$beta),
+                                          )
+             )),
              "exp" =  withMathJax(sprintf("$$F(%.03f) = \\mathbb{P}(X \\leq  %.03f ) = %.04f$$", 
                                           input$xFixed, 
                                           input$xFixed,
@@ -1014,6 +1065,9 @@ shinyServer(function(input, output, session) {
                                  "poi" = qpois(as.numeric(input$quantile), 
                                                lambda = as.numeric(input$lambda) ),
                                  #Continuous
+                                 "beta" = qbeta(as.numeric(input$quantile), 
+                                                shape1 = as.numeric(input$alpha),
+                                                shape2 = as.numeric(input$beta)),
                                  "exp" = qgamma(as.numeric(input$quantile), 
                                                 shape = as.numeric(1),
                                                 scale = as.numeric(input$beta)),
@@ -1090,6 +1144,8 @@ shinyServer(function(input, output, session) {
                             else{
                               if(is.null(input$x2) || is.null(input$beta)) return ()
                               switch(input$distrib,
+                                     "beta" = pbeta(as.numeric(input$x2), shape1 = as.numeric(input$alpha), shape2 = as.numeric(input$beta))
+                                     - pbeta(as.numeric(input$x1), shape1 = as.numeric(input$alpha), shape2 = as.numeric(input$beta)),
                                      "exp"  = pgamma(as.numeric(input$x2), shape = as.numeric(1), scale = as.numeric(input$beta)) 
                                      - pgamma(as.numeric(input$x1), shape = as.numeric(1), scale = as.numeric(input$beta)),
                                      "gam"  = pgamma(as.numeric(input$x2), shape = as.numeric(input$alpha), scale = as.numeric(input$beta)) 
@@ -1128,6 +1184,7 @@ shinyServer(function(input, output, session) {
                             input$xFixed,
                             input$xFixed,
                             switch(input$distrib,
+                                   beta = pbeta(as.numeric(input$xFixed), shape1 = as.numeric(input$alpha), shape2 = as.numeric(input$beta)),
                                    exp = pgamma(as.numeric(input$xFixed), shape = as.numeric(1), scale = as.numeric(input$beta)),
                                    gam = pgamma(as.numeric(input$xFixed), shape = as.numeric(input$alpha), scale = as.numeric(input$beta)),
                                    norm = pnorm(as.numeric(input$xFixed), mean = as.numeric(input$normMean), 
@@ -1152,6 +1209,7 @@ shinyServer(function(input, output, session) {
                                    "nbin" = 1 - pnbinom(as.numeric(input$xFixed - input$numSuccesses)-1, 
                                                         as.numeric(input$numSuccesses), as.numeric(input$p)),
                                    "poi" = 1 - ppois(as.numeric(input$xFixed)-1, as.numeric(input$lambda)),
+                                   "beta" = 1 - pbeta(as.numeric(input$xFixed), shape1 = as.numeric(input$alpha), shape2 = as.numeric(input$beta)),
                                    "exp" = 1 - pgamma(as.numeric(input$xFixed), shape = as.numeric(1), scale = as.numeric(input$beta)),
                                    "gam" = 1 - pgamma(as.numeric(input$xFixed), shape = as.numeric(input$alpha), scale = as.numeric(input$beta)),
                                    "norm" = 1 - pnorm(as.numeric(input$xFixed), mean = as.numeric(input$normMean), 
@@ -1176,6 +1234,7 @@ shinyServer(function(input, output, session) {
                                    "nbin" = 1 - pnbinom(as.numeric(input$xFixed - input$numSuccesses)-1, 
                                                         as.numeric(input$numSuccesses), as.numeric(input$p)),
                                    "poi" = 1 - ppois(as.numeric(input$xFixed)-1, as.numeric(input$lambda)),
+                                   "beta" = 1 - pbeta(as.numeric(input$xFixed), shape1 = as.numeric(input$alpha), shape2 = as.numeric(input$beta)),
                                    "exp" = 1 - pgamma(as.numeric(input$xFixed), shape = as.numeric(1), scale = as.numeric(input$beta)),
                                    "gam" = 1 - pgamma(as.numeric(input$xFixed), shape = as.numeric(input$alpha), scale = as.numeric(input$beta)),
                                    "norm" = 1 - pnorm(as.numeric(input$xFixed), mean = as.numeric(input$normMean), 
@@ -1239,6 +1298,8 @@ shinyServer(function(input, output, session) {
                             if(input$x2 <= input$x1) {1}
                             else{
                               switch(input$distrib,
+                                     "beta" = 1 - pbeta(as.numeric(input$x2), shape1 = as.numeric(input$alpha), shape2 = as.numeric(input$beta)) 
+                                     + pbeta(as.numeric(input$x1), shape1 = as.numeric(input$alpha), shape2 = as.numeric(input$beta)),
                                      "exp" = 1 - pgamma(as.numeric(input$x2), shape = as.numeric(1), scale = as.numeric(input$beta)) 
                                      + pgamma(as.numeric(input$x1), shape = as.numeric(1), scale = as.numeric(input$beta)),
                                      "gam" = 1 - pgamma(as.numeric(input$x2), shape = as.numeric(input$alpha), scale = as.numeric(input$beta)) 
@@ -1303,11 +1364,18 @@ shinyServer(function(input, output, session) {
              
              #Continuous
              
+             "beta" = withMathJax(sprintf("Mean is $$\\mathbb{E}(X) = \\frac{\\alpha}{\\alpha + \\beta} = \\frac{%.03f}{%.03f + %.03f} = %.04f$$",
+                                          input$alpha,
+                                          input$alpha,
+                                          input$beta,
+                                          input$alpha/(input$alpha + input$beta)
+             )),
+             
              "exp" = withMathJax(sprintf("Mean is $$\\mathbb{E}(X) = \\beta = %.04f$$",
                                          input$beta
              )),
              
-             "gam" = withMathJax(sprintf("Mean is $$\\mathbb{E}(X) = \\alpha \\beta = %d \\cdot %d  =  %.04f$$",
+             "gam" = withMathJax(sprintf("Mean is $$\\mathbb{E}(X) = \\alpha \\beta = %.03f \\cdot %.03f  =  %.04f$$",
                                          input$alpha,
                                          input$beta,
                                          (input$alpha * input$beta)
@@ -1317,7 +1385,7 @@ shinyServer(function(input, output, session) {
                                           input$normMean
              )), 
              
-             "unif" = withMathJax(sprintf("Mean is $$\\mathbb{E}(X) = \\frac{\\theta_1+\\theta_2}{2} = \\frac{%d + %d}{2} = %.04f$$",
+             "unif" = withMathJax(sprintf("Mean is $$\\mathbb{E}(X) = \\frac{\\theta_1+\\theta_2}{2} = \\frac{%.03f + %.03f}{2} = %.04f$$",
                                           input$theta1,
                                           input$theta2,
                                           (input$theta1 + input$theta2)/2
@@ -1381,7 +1449,18 @@ shinyServer(function(input, output, session) {
              
              #Continuous
              
-             "exp" = withMathJax(sprintf("Mean is $$\\mathbb{V}(X) = \\beta^2 = %.04f$$",
+             "beta" = withMathJax(sprintf("Variance is $$\\mathbb{V}(X) = \\frac{\\alpha + \\beta}{(\\alpha + \\beta)^2(\\alpha + \\beta + 1)} 
+                                          = \\frac{%.03f + %.03f}{(%.03f + %.03f)^2(%.03f + %.03f + 1)} = %.04f$$",
+                                         input$alpha,
+                                         input$beta,
+                                         input$alpha,
+                                         input$beta,
+                                         input$alpha,
+                                         input$beta,
+                                         (input$alpha + input$beta)/((input$alpha + input$beta)^2 * (input$alpha + input$beta + 1))
+             )),
+             
+             "exp" = withMathJax(sprintf("Variance is $$\\mathbb{V}(X) = \\beta^2 = %.04f$$",
                                          input$beta^2
              )),
              

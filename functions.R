@@ -297,3 +297,66 @@ gamma_prob_CDF_plot <- function(lb, ub = qgamma(0.999, shape=shape, scale=scale)
    )
   )
 }
+
+#Beta Distribution
+beta_prob_area_plot <- function(lb, ub, shape1, shape2, limits = c(0, 1), extreme = FALSE) {
+  if(is.null(limits[1]) || is.null(limits[2]) || is.null(shape1) || is.null(shape2)) return () 
+  x <- seq(limits[1], limits[2], length.out = 100)
+  xmin <- max(lb, limits[1])
+  xmax <- min(ub, limits[2])
+  if(extreme == FALSE){
+    areax1 <- seq(xmin, xmax, length.out = 100)
+    areax2 <- 0 #No area
+  } else{
+    areax1 <- seq(0, 
+                  xmin, 
+                  length.out = 100)
+    areax2 <- seq(xmax, 
+                  1, 
+                  length.out = 100)
+  }
+  
+  area1 <- data.frame(x = areax1, ymin = 0, ymax = dbeta(areax1, shape1 = shape1, shape2 = shape2))
+  area2 <- data.frame(x = areax2, ymin = 0, ymax = dbeta(areax2, shape1 = shape1, shape2 = shape2))
+  (ggplot()
+   + xlab("x")
+   + ylab("Density")
+   + ggtitle("Beta Probability Density Function\n")
+   + geom_line(data.frame(x = x, y = dbeta(x, shape1 = shape1, shape2 = shape2)),
+               mapping = aes(x = x, y = y))
+   + geom_ribbon(data = area1, 
+                 mapping = aes(x = x, ymin = ymin, ymax = ymax), 
+                 fill = "#00BA38")
+   + geom_ribbon(data = area2, 
+                 mapping = aes(x = x, ymin = ymin, ymax = ymax), 
+                 fill = "#00BA38")
+   + scale_x_continuous(limits = limits, breaks = 
+                          if(limits[2] - limits[1] <= 15) seq(ceiling(limits[1]), ceiling(limits[2]), 1)
+                        else seq(ceiling(limits[1]), ceiling(limits[2]), ceiling((limits[2] - limits[1])/15))
+   )
+   + scale_fill_manual(values=c("black"))
+   + guides(fill=FALSE))
+}
+
+beta_prob_CDF_plot <- function(lb, ub, shape1, shape2, limits = c(0, 1)) {
+  if(is.null(limits[1]) || is.null(limits[2])) return ()
+  x <- seq(limits[1], limits[2], length.out = 100)
+  xmin <- max(lb, limits[1])
+  xmax <- min(ub, limits[2])
+  areax <- seq(xmin, xmax, length.out = 100)
+  area <- data.frame(x = areax, ymin = 0, ymax = pbeta(areax, shape1 = shape1, shape2 = shape2))
+  (ggplot()
+   + xlab("x")
+   + ylab("Cumulative Probability")
+   + ggtitle("Beta Cumulative Distribution Function\n")
+   + geom_line(data.frame(x = x, y = pbeta(x, shape1 = shape1, shape2 = shape2)),
+               mapping = aes(x = x, y = y))
+   + geom_ribbon(data = area, 
+                 mapping = aes(x = x, ymin = ymin, ymax = ymax), 
+                 fill = "#00BA38")
+   + scale_x_continuous(limits = limits, breaks = 
+                          if(limits[2] - limits[1] <= 15) seq(ceiling(limits[1]), ceiling(limits[2]), 1)
+                        else seq(ceiling(limits[1]), ceiling(limits[2]), ceiling((limits[2] - limits[1])/15))
+   )
+  )
+}

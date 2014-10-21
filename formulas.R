@@ -75,6 +75,16 @@ poiForm <- withMathJax(
 )
 
 ###Continuous
+#Beta
+betaForm <- withMathJax(
+  h4(strong("Beta Distribution")),
+  helpText('Support is $$ x \\in (0, 1)$$'),
+  helpText('PDF is $$f(x) = \\frac{(\\alpha + \\beta - 1)!}{(\\alpha-1)!(\\beta-1)!} x^{\\alpha-1} (1-x)^{\\beta-1}$$'),
+  helpText('CDF is $$F(x) = \\mathbb{P}\\{X \\le x\\} = \\int_{-\\infty}^{x}f(t) dt$$'),
+  helpText('Mean is $$\\mathbb{E}(X) = \\frac{\\alpha}{\\alpha + \\beta}$$'),
+  helpText('Variance is $$\\mathbb{V}(X) = \\frac{\\alpha\\beta}{(\\alpha + \\beta)^2(\\alpha + \\beta + 1)}$$')
+)
+
 #Exponential
 expForm <- withMathJax(
   h4(strong("Exponential Distribution")),
