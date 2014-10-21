@@ -29,7 +29,8 @@ shinyServer(function(input, output, session) {
     } else if(input$distType=="Continuous"){
       radioButtons("distrib","",
                    selected="exp",
-                   list(#"Beta"="beta","Cauchy"="cauchy",
+                   list(#"Beta"="beta",
+                     #"Cauchy"="cauchy",
                      #"Chi-squared"="chisq",
                      "Exponential"="exp",
                      #"F"="F",
@@ -38,7 +39,8 @@ shinyServer(function(input, output, session) {
                      #"Logistic"="logi",
                      #"Log-Normal"="lognorm",
                      "Normal"="norm",
-                     #"Pareto"="pareto","t"="t",
+                     #"Pareto"="pareto",
+                     #"t"="t",
                      "Uniform"="unif")
                    #"Weibull"="weib")
       )
@@ -229,7 +231,7 @@ shinyServer(function(input, output, session) {
                                    inputValue = input$xFixed, xlabel = "Discrete Values",
                                    distribName = "Discrete Uniform"),
              
-             "geom" = distribPlot(func = dgeom, range = 1:ceiling(4*1/input$p), args = c(input$p),
+             "geom" = distribPlot(func = dgeom, range = 1:ceiling(qgeom(0.9999, prob=input$p)), args = c(input$p),
                                   inputValue = input$xFixed, xlabel = "Number of Trials",
                                   distribName = "Geometric", numArgs = 1, paramAdjust = 1),
              
@@ -238,12 +240,12 @@ shinyServer(function(input, output, session) {
                                    args = c(input$favBalls, (input$numEvents - input$favBalls), input$numTrials),
                                    inputValue = input$xFixed, distribName = "Hypergeometric", numArgs = 3),
              
-             "nbin" = distribPlot(func = dnbinom, range = input$numSuccesses:ceiling(7*1/input$p), 
+             "nbin" = distribPlot(func = dnbinom, range = input$numSuccesses:ceiling(qnbinom(0.9999, size=input$numSuccesses, prob=input$p)), 
                                   args = c(input$numSuccesses, input$p),
                                   inputValue = input$xFixed, xlabel = "Number of Trials",
                                   distribName = "Negative Binomial", paramAdjust = input$numSuccesses),
              
-             "poi" = distribPlot(func = dpois, range = 0:ceiling(4*input$lambda),
+             "poi" = distribPlot(func = dpois, range = 0:ceiling(qpois(0.9999, input$lambda)),
                                  args = c(input$lambda), inputValue = input$xFixed,
                                  xlabel = "Number of Occurrences",
                                  distribName = "Poisson", numArgs = 1),
@@ -252,8 +254,12 @@ shinyServer(function(input, output, session) {
              "norm" = normal_prob_area_plot(input$xFixed-sqrt(as.numeric(input$normVar))/50.0, input$xFixed+sqrt(as.numeric(input$normVar))/50.0, 
                                             mean = input$normMean, sd = sqrt(as.numeric(input$normVar))),
              "unif" = uniform_prob_area_plot(input$xFixed-(input$theta2-input$theta1)/500.0, input$xFixed+(input$theta2-input$theta1)/500.0, min = input$theta1, max = input$theta2),
-             "exp" = exp_prob_area_plot(input$xFixed-input$beta/100.0, input$xFixed+input$beta/100.0, shape = 1, scale = input$beta),
-             "gam" = gamma_prob_area_plot(input$xFixed-input$beta/50.0, input$xFixed+input$beta/50.0, shape = input$alpha, scale = input$beta),
+             "exp" = exp_prob_area_plot(input$xFixed-input$beta/100.0, input$xFixed+input$beta/100.0, shape = 1, scale = input$beta,
+                                        limits = c(0, qgamma(0.999, shape = 1, 
+                                                             scale = as.numeric(input$beta)))),
+             "gam" = gamma_prob_area_plot(input$xFixed-input$beta/50.0, input$xFixed+input$beta/50.0, shape = input$alpha, scale = input$beta,
+                                          limits = c(0, qgamma(0.999, shape = as.numeric(input$alpha), 
+                                                               scale = as.numeric(input$beta)))),
              #NULL
       )
     } 
@@ -311,21 +317,21 @@ shinyServer(function(input, output, session) {
                                   qunifdisc(input$quantile, input$a, input$b) == input$b){c("#00BA38", "#000000")}
         else{c("#000000", "#00BA38")})
       + guides(fill=FALSE),
-      "geom" = qplot(factor(1:ceiling(4*1/input$p)),  ##### How large to set the bounds?
-                     dgeom(1:ceiling(4*1/input$p)-1, input$p),
+      "geom" = qplot(factor(1:ceiling(qgeom(0.9999, prob=input$p)+1)),  ##### How large to set the bounds?
+                     dgeom(1:ceiling(qgeom(0.9999, prob=input$p)+1), input$p),
                      xlab = "Number of Trials", 
                      ylab = "Probability", 
                      main = "Geometric Probability Mass Function\n",
                      geom = "bar", 
                      stat = "identity",
-                     fill = 1:ceiling(4*1/input$p) <= if(!is.null(input$quantile) && !is.null(input$p))
+                     fill = 1:ceiling(qgeom(0.9999, prob=input$p)+1) <= if(!is.null(input$quantile) && !is.null(input$p))
                                                           qgeom(as.numeric(input$quantile), as.numeric(input$p)) + 1
                                                       else {-1}   
       )
       #To get the default shading colors to black with green
       + scale_fill_manual(values= 
           if (!is.null(input$quantile) && !is.null(input$p) && 
-                ceiling(4*1/input$p) <= qgeom(as.numeric(input$quantile), as.numeric(input$p)) + 1){c("#00BA38", "#000000")}
+                ceiling(qgeom(0.9999, prob=input$p)) <= qgeom(as.numeric(input$quantile), as.numeric(input$p)) + 1){c("#00BA38", "#000000")}
         else{c("#000000", "#00BA38")})
       + guides(fill=FALSE), 
       "hgeom" = qplot(factor(max(0, input$numTrials+input$favBalls-input$numEvents):min(input$favBalls, input$numTrials)), 
@@ -349,38 +355,38 @@ shinyServer(function(input, output, session) {
                      as.numeric(input$numTrials)) == input$favBalls){c("#00BA38", "#000000")}
         else{c("#000000", "#00BA38")})
       + guides(fill=FALSE), 
-      "nbin" = qplot(factor(input$numSuccesses:ceiling(7*1/input$p)), 
-                     dnbinom(input$numSuccesses:ceiling(7*1/input$p), input$numSuccesses, input$p),
+      "nbin" = qplot(factor(input$numSuccesses:ceiling(qnbinom(0.9999, size=input$numSuccesses, prob=input$p))), 
+                     dnbinom(input$numSuccesses:ceiling(qnbinom(0.9999, size=input$numSuccesses, prob=input$p)), input$numSuccesses, input$p),
                      xlab = "Number of Successes", 
                      ylab = "Probability", 
                      main = "Negative Binomial Probability Mass Function\n",
                      geom = "bar", 
                      stat = "identity",
-                     fill = input$numSuccesses:ceiling(7*1/input$p) <= if(!is.null(input$quantile) && !is.null(input$numSuccesses) && !is.null(input$p))
+                     fill = input$numSuccesses:ceiling(qnbinom(0.9999, size=input$numSuccesses, prob=input$p)) <= if(!is.null(input$quantile) && !is.null(input$numSuccesses) && !is.null(input$p))
                                                                           qnbinom(as.numeric(input$quantile), 
                                                                                as.numeric(input$numSuccesses), as.numeric(input$p)) + as.numeric(input$numSuccesses)
                                                                       else {-1}
       )
       + scale_fill_manual(values=  if(!is.null(input$quantile) && !is.null(input$numSuccesses) && !is.null(input$p) &&
-                                        ceiling(7*1/input$p) <= qnbinom(as.numeric(input$quantile), 
+                                        ceiling(qnbinom(0.9999, size=input$numSuccesses, prob=input$p)) <= qnbinom(as.numeric(input$quantile), 
                                                                       as.numeric(input$numSuccesses), 
                                                                       as.numeric(input$p)) + as.numeric(input$numSuccesses)){c("#00BA38", "#000000")}
         else{c("#000000", "#00BA38")})
       + guides(fill=FALSE), 
-      "poi" = qplot(factor(0:ceiling(4*input$lambda)),
-                    dpois(0:ceiling(4*input$lambda), input$lambda),
+      "poi" = qplot(factor(0:ceiling(qpois(0.9999, input$lambda))),
+                    dpois(0:ceiling(qpois(0.9999, input$lambda)), input$lambda),
                     xlab = "Number of Occurrences", 
                     ylab = "Probability", 
                     main = "Poisson Probability Mass Function\n",
                     geom = "bar", 
                     stat = "identity",
-                    fill = 0:ceiling(4*input$lambda) <= if(!is.null(input$quantile) && !is.null(input$lambda))
+                    fill = 0:ceiling(qpois(0.9999, input$lambda)) <= if(!is.null(input$quantile) && !is.null(input$lambda))
                                                             qpois(input$quantile, input$lambda)
                                                         else {-1}
       )
       #To get the default shading colors to black with green
       + scale_fill_manual(values= if(!is.null(input$quantile) && !is.null(input$lambda) && 
-                                       ceiling(4*input$lambda) <= qpois(input$quantile, input$lambda)){c("#00BA38", "#000000")}
+                                       ceiling(qpois(0.9999, input$lambda)) <= qpois(input$quantile, input$lambda)){c("#00BA38", "#000000")}
         else{c("#000000", "#00BA38")})
       + guides(fill=FALSE),
       
@@ -396,11 +402,14 @@ shinyServer(function(input, output, session) {
 
       ),
       "exp" = exp_prob_area_plot(0, qgamma(as.numeric(input$quantile), shape = as.numeric(1), scale = as.numeric(input$beta)), 
-                                                      shape = 1, scale = as.numeric(input$beta)
+                                                      shape = 1, scale = as.numeric(input$beta),
+                                                      limits = c(0, qgamma(0.999, shape = 1, 
+                                                        scale = as.numeric(input$beta)))
       ),
       "gam" = gamma_prob_area_plot(0, qgamma(as.numeric(input$quantile), 
                                              shape = as.numeric(input$alpha), scale = as.numeric(input$beta)), 
-                                  shape = as.numeric(input$alpha), scale = as.numeric(input$beta)
+                                  shape = as.numeric(input$alpha), scale = as.numeric(input$beta), 
+                                  limits = c(0, qgamma(0.999, shape = as.numeric(input$alpha), scale = as.numeric(input$beta)))
       )
       )
     }
@@ -423,7 +432,7 @@ shinyServer(function(input, output, session) {
                                    distribName = "Discrete Uniform", plotType = "Cumulative",
                                    mainLabel = "Cumulative Distribution Function"),
              
-             "geom" = distribPlot(func = pgeom, range = 1:ceiling(4*1/input$p), args = c(input$p),
+             "geom" = distribPlot(func = pgeom, range = 1:ceiling(qgeom(0.9999, prob=input$p)), args = c(input$p),
                                   inputValue = input$xFixed, xlabel = "Number of Trials",
                                   distribName = "Geometric", numArgs = 1, paramAdjust = 1,
                                   plotType = "Cumulative",
@@ -436,14 +445,14 @@ shinyServer(function(input, output, session) {
                                    plotType = "Cumulative",
                                    mainLabel = "Cumulative Distribution Function"),
              
-             "nbin" = distribPlot(func = pnbinom, range = input$numSuccesses:ceiling(7*1/input$p), 
+             "nbin" = distribPlot(func = pnbinom, range = input$numSuccesses:ceiling(qnbinom(0.9999, size=input$numSuccesses, prob=input$p)), 
                                   args = c(input$numSuccesses, input$p),
                                   inputValue = input$xFixed, xlabel = "Number of Trials",
                                   distribName = "Negative Binomial", paramAdjust = input$numSuccesses,
                                   plotType = "Cumulative",
                                   mainLabel = "Cumulative Distribution Function"),
              
-             "poi" = distribPlot(func = ppois, range = 0:ceiling(4*input$lambda),
+             "poi" = distribPlot(func = ppois, range = 0:ceiling(qpois(0.9999, input$lambda)),
                                  args = c(input$lambda), inputValue = input$xFixed,
                                  xlabel = "Number of Occurrences",
                                  distribName = "Poisson", numArgs = 1,
@@ -459,8 +468,12 @@ shinyServer(function(input, output, session) {
              "norm" = normal_prob_CDF_plot(input$xFixed-sqrt(as.numeric(input$normVar))/50.0, input$xFixed+sqrt(as.numeric(input$normVar))/50.0, 
                                             mean = input$normMean, sd = sqrt(as.numeric(input$normVar))),
              "unif" = uniform_prob_CDF_plot(input$xFixed-(input$theta2-input$theta1)/500.0, input$xFixed+(input$theta2-input$theta1)/500.0, min = input$theta1, max = input$theta2),
-             "exp" = exp_prob_CDF_plot(input$xFixed-input$beta/100.0, input$xFixed+input$beta/100.0, shape = 1, scale = input$beta),
-             "gam" = gamma_prob_CDF_plot(input$xFixed-input$beta/50.0, input$xFixed+input$beta/50.0, shape = input$alpha, scale = input$beta),
+             "exp" = exp_prob_CDF_plot(input$xFixed-input$beta/100.0, input$xFixed+input$beta/100.0, shape = 1, scale = input$beta,
+                                       limits = c(0, qgamma(0.999, shape = 1, 
+                                                            scale = as.numeric(input$beta)))),
+             "gam" = gamma_prob_CDF_plot(input$xFixed-input$beta/50.0, input$xFixed+input$beta/50.0, shape = input$alpha, scale = input$beta,
+                                         limits = c(0, qgamma(0.999, shape = as.numeric(input$alpha), 
+                                                              scale = as.numeric(input$beta)))),
              #NULL
              
       )      
@@ -571,8 +584,8 @@ shinyServer(function(input, output, session) {
                  else{c("#000000", "#00BA38")}}
                else{c("#000000", "#00BA38")})
              + guides(fill=FALSE),
-             "geom" = qplot(factor(1:ceiling(4*1/input$p)),  ##### How large to set the bounds?
-                            dgeom(1:ceiling(4*1/input$p)-1, input$p),
+             "geom" = qplot(factor(1:ceiling(qgeom(0.9999, prob=input$p))),  ##### How large to set the bounds?
+                            dgeom(1:ceiling(qgeom(0.9999, prob=input$p))-1, prob=input$p),
                             xlab = "Number of Trials", 
                             ylab = "Probability", 
                             main = "Geometric Probability Mass Function\n",
@@ -580,10 +593,10 @@ shinyServer(function(input, output, session) {
                             stat = "identity",
                             fill = if(!is.null(input$xFixed)){
                               switch(input$probType,
-                                          "between" = 1:ceiling(4*1/input$p) >= input$x1 & 1:ceiling(4*1/input$p) <= input$x2,
-                                          "lowerTail" = 1:ceiling(4*1/input$p) <= input$xFixed,
-                                          "upperTail" = 1:ceiling(4*1/input$p) >= input$xFixed,
-                                          "extreme" = 1:ceiling(4*1/input$p) <= input$x1 | 1:ceiling(4*1/input$p) >= input$x2, 
+                                          "between" = 1:ceiling(qgeom(0.9999, prob=input$p)) >= input$x1 & 1:ceiling(qgeom(0.9999, prob=input$p)) <= input$x2,
+                                          "lowerTail" = 1:ceiling(qgeom(0.9999, prob=input$p)) <= input$xFixed,
+                                          "upperTail" = 1:ceiling(qgeom(0.9999, prob=input$p)) >= input$xFixed,
+                                          "extreme" = 1:ceiling(qgeom(0.9999, prob=input$p)) <= input$x1 | 1:ceiling(qgeom(0.9999, prob=input$p)) >= input$x2, 
                             )
                             }
              )
@@ -638,8 +651,8 @@ shinyServer(function(input, output, session) {
                  else{c("#000000", "#00BA38")}}
                else{c("#000000", "#00BA38")})
              + guides(fill=FALSE), 
-             "nbin" = qplot(factor(input$numSuccesses:ceiling(7*1/input$p)), 
-                            dnbinom(input$numSuccesses:ceiling(7*1/input$p), input$numSuccesses, input$p),
+             "nbin" = qplot(factor(input$numSuccesses:ceiling(qnbinom(0.9999, size = input$numSuccesses, prob = input$p))), 
+                            dnbinom(input$numSuccesses:ceiling(qnbinom(0.9999, size = input$numSuccesses, prob = input$p)), size = input$numSuccesses, prob = input$p),
                             xlab = "Number of Successes", 
                             ylab = "Probability", 
                             main = "Negative Binomial Probability Mass Function\n",
@@ -647,10 +660,10 @@ shinyServer(function(input, output, session) {
                             stat = "identity",
                             fill = if(!is.null(input$xFixed)){
                               switch(input$probType,
-                                          "between" = input$numSuccesses:ceiling(7*1/input$p) >= input$x1 & input$numSuccesses:ceiling(7*1/input$p) <= input$x2,
-                                          "lowerTail" = input$numSuccesses:ceiling(7*1/input$p) <= input$xFixed,
-                                          "upperTail" = input$numSuccesses:ceiling(7*1/input$p) >= input$xFixed,
-                                          "extreme" = input$numSuccesses:ceiling(7*1/input$p) <= input$x1 | input$numSuccesses:ceiling(7*1/input$p) >= input$x2,
+                                          "between" = input$numSuccesses:ceiling(qnbinom(0.9999, size = input$numSuccesses, prob = input$p)) >= input$x1 & input$numSuccesses:ceiling(qnbinom(0.9999, size = input$numSuccesses, prob = input$p)) <= input$x2,
+                                          "lowerTail" = input$numSuccesses:ceiling(qnbinom(0.9999, size = input$numSuccesses, prob = input$p)) <= input$xFixed,
+                                          "upperTail" = input$numSuccesses:ceiling(qnbinom(0.9999, size = input$numSuccesses, prob = input$p)) >= input$xFixed,
+                                          "extreme" = input$numSuccesses:ceiling(qnbinom(0.9999, size = input$numSuccesses, prob = input$p)) <= input$x1 | input$numSuccesses:ceiling(qnbinom(0.9999, size = input$numSuccesses, prob = input$p)) >= input$x2,
                                           #NULL
                             )
                             }
@@ -665,13 +678,13 @@ shinyServer(function(input, output, session) {
                  if ( pnbinom(input$xFixed - 1, input$numSuccesses, input$p, lower.tail = FALSE) == 1){c("#00BA38", "#000000")}
                  else{c("#000000", "#00BA38")}}
                else if (input$probType == "between"){
-                 if (input$x1 <= input$numSuccesses && input$x2 >= ceiling(7*1/input$p))
+                 if (input$x1 <= input$numSuccesses && input$x2 >= ceiling(qnbinom(0.9999, size = input$numSuccesses, prob = input$p)))
                  {c("#00BA38", "#000000")}
                  else{c("#000000", "#00BA38")}}
                else{c("#000000", "#00BA38")})
              + guides(fill=FALSE), 
-             "poi" = qplot(factor(0:ceiling(4*input$lambda)),
-                           dpois(0:ceiling(4*input$lambda), input$lambda),
+             "poi" = qplot(factor(0:ceiling(qpois(0.9999, input$lambda))),
+                           dpois(0:ceiling(qpois(0.9999, input$lambda)), input$lambda),
                            xlab = "Number of Occurrences", 
                            ylab = "Probability", 
                            main = "Poisson Probability Mass Function\n",
@@ -679,10 +692,10 @@ shinyServer(function(input, output, session) {
                            stat = "identity",
                            fill = if(!is.null(input$xFixed)){
                              switch(input$probType,
-                                    "between" = 0:ceiling(4*input$lambda) >= input$x1 & 0:ceiling(4*input$lambda) <= input$x2,
-                                    "lowerTail" = 0:ceiling(4*input$lambda) <= input$xFixed,
-                                    "upperTail" = 0:ceiling(4*input$lambda) >= input$xFixed,
-                                    "extreme" = 0:ceiling(4*input$lambda) <= input$x1 | 0:ceiling(4*input$lambda) >= input$x2,
+                                    "between" = 0:ceiling(qpois(0.9999, input$lambda)) >= input$x1 & 0:ceiling(qpois(0.999, input$lambda)) <= input$x2,
+                                    "lowerTail" = 0:ceiling(qpois(0.9999, input$lambda)) <= input$xFixed,
+                                    "upperTail" = 0:ceiling(qpois(0.9999, input$lambda)) >= input$xFixed,
+                                    "extreme" = 0:ceiling(qpois(0.9999, input$lambda)) <= input$x1 | 0:ceiling(qpois(0.9999, input$lambda)) >= input$x2,
                                     #NULL
                              )
                            }
@@ -698,7 +711,7 @@ shinyServer(function(input, output, session) {
                  if ( ppois(input$xFixed - 1, input$lambda, lower.tail = FALSE) == 1){c("#00BA38", "#000000")}
                  else{c("#000000", "#00BA38")}}
                else if (input$probType == "between"){
-                 if ( input$x1 <= 0 && input$x2 >= ceiling(4*input$lambda))
+                 if ( input$x1 <= 0 && input$x2 >= ceiling(qpois(0.9999, input$lambda)))
                  {c("#00BA38", "#000000")}
                  else{c("#000000", "#00BA38")}}
                else{c("#000000", "#00BA38")})
@@ -734,7 +747,7 @@ shinyServer(function(input, output, session) {
                                                            shape = 1, scale = input$beta),
                             "lowerTail" = exp_prob_area_plot(0, input$xFixed, 
                                                              shape = 1, scale = input$beta),
-                            "upperTail" = exp_prob_area_plot(input$xFixed, 1 + 4 * input$beta,
+                            "upperTail" = exp_prob_area_plot(input$xFixed, qgamma(0.999, shape=1, scale=input$beta),
                                                              shape = 1, scale = input$beta),
                             "extreme" = exp_prob_area_plot(input$x1, input$x2, 
                                                            shape = 1, scale = input$beta, 
@@ -743,14 +756,27 @@ shinyServer(function(input, output, session) {
              ),
              "gam" = switch(input$probType,
                             "between" = gamma_prob_area_plot(input$x1, input$x2, 
-                                                             shape = input$alpha, scale = input$beta),
+                                                             shape = input$alpha, scale = input$beta,
+                                                             limits = c(0, qgamma(0.999, shape = as.numeric(input$alpha), 
+                                                                                  scale = as.numeric(input$beta)))
+                            ),
                             "lowerTail" = gamma_prob_area_plot(0, input$xFixed, 
-                                                               shape = input$alpha, scale = input$beta),
-                            "upperTail" = gamma_prob_area_plot(input$xFixed, input$alpha + 10 * input$beta,
-                                                               shape = input$alpha, scale = input$beta),
+                                                               shape = input$alpha, scale = input$beta,
+                                                               limits = c(0, qgamma(0.999, shape = as.numeric(input$alpha), 
+                                                                                    scale = as.numeric(input$beta)))
+                                                               ),
+                            "upperTail" = gamma_prob_area_plot(input$xFixed, qgamma(0.999, shape = as.numeric(input$alpha), 
+                                                                                    scale = as.numeric(input$beta)),
+                                                               shape = input$alpha, scale = input$beta,
+                                                               limits = c(0, qgamma(0.999, shape = as.numeric(input$alpha), 
+                                                                                    scale = as.numeric(input$beta)))
+                                                               ),
                             "extreme" = gamma_prob_area_plot(input$x1, input$x2, 
                                                              shape = input$alpha, scale = input$beta, 
-                                                             extreme = TRUE),
+                                                             extreme = TRUE,
+                                                             limits = c(0, qgamma(0.999, shape = as.numeric(input$alpha), 
+                                                                                  scale = as.numeric(input$beta)))
+                                                             ),
                             #NULL
              ),
              # NULL

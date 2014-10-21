@@ -171,7 +171,7 @@ uniform_prob_CDF_plot <- function(lb, ub = max + 1, min, max, limits = c(min - 1
 }
 
 #Exponential Distribution
-exp_prob_area_plot <- function(lb, ub, shape = 1, scale = 1, limits = c(0, shape + 4 * scale), extreme = FALSE) {
+exp_prob_area_plot <- function(lb, ub, shape = 1, scale = 1, limits = c(0, qgamma(0.999, shape=1, scale=scale)), extreme = FALSE) {
   if(is.null(limits[1]) || is.null(limits[2])) return ()
   x <- seq(limits[1], limits[2], length.out = 100)
   xmin <- max(lb, limits[1])
@@ -184,7 +184,7 @@ exp_prob_area_plot <- function(lb, ub, shape = 1, scale = 1, limits = c(0, shape
                   xmin, 
                   length.out = 100)
     areax2 <- seq(xmax, 
-                  ceiling(shape + 4 * scale), 
+                  ceiling(qgamma(0.999, shape=1, scale=scale)), 
                   length.out = 100)
   }
   
@@ -210,7 +210,7 @@ exp_prob_area_plot <- function(lb, ub, shape = 1, scale = 1, limits = c(0, shape
    + guides(fill=FALSE))
 }
 
-exp_prob_CDF_plot <- function(lb, ub = shape + 4 * scale, shape = 1, scale = 1, limits = c(0, shape + 4 * scale)) {
+exp_prob_CDF_plot <- function(lb, ub = qgamma(0.999, shape=1, scale=scale), shape = 1, scale = 1, limits = c(0, qgamma(0.999, shape=1, scale=scale))) {
   if(is.null(limits[1]) || is.null(limits[2])) return ()
   x <- seq(limits[1], limits[2], length.out = 100)
   xmin <- max(lb, limits[1])
@@ -235,7 +235,7 @@ exp_prob_CDF_plot <- function(lb, ub = shape + 4 * scale, shape = 1, scale = 1, 
 }
 
 #Gamma Distribution
-gamma_prob_area_plot <- function(lb, ub, shape = 1, scale = 1, limits = c(0, shape + 10 * scale), extreme = FALSE) {
+gamma_prob_area_plot <- function(lb, ub, shape, scale, limits = c(0, qgamma(0.999, shape=shape, scale=scale)), extreme = FALSE) {
   if(is.null(limits[1]) || is.null(limits[2])) return ()
   x <- seq(limits[1], limits[2], length.out = 100)
   xmin <- max(lb, limits[1])
@@ -248,7 +248,7 @@ gamma_prob_area_plot <- function(lb, ub, shape = 1, scale = 1, limits = c(0, sha
                   xmin, 
                   length.out = 100)
     areax2 <- seq(xmax, 
-                  ceiling(shape + 10 * scale), 
+                  ceiling(qgamma(0.999, shape = shape, scale = scale)), 
                   length.out = 100)
   }
   
@@ -274,7 +274,8 @@ gamma_prob_area_plot <- function(lb, ub, shape = 1, scale = 1, limits = c(0, sha
    + guides(fill=FALSE))
 }
 
-gamma_prob_CDF_plot <- function(lb, ub = shape + 10 * scale, shape = 1, scale = 1, limits = c(0, shape + 10 * scale)) {
+gamma_prob_CDF_plot <- function(lb, ub = qgamma(0.999, shape=shape, scale=scale), shape = 1, scale = 1, 
+                                limits = c(0, qgamma(0.999, shape=shape, scale=scale))) {
   if(is.null(limits[1]) || is.null(limits[2])) return ()
   x <- seq(limits[1], limits[2], length.out = 100)
   xmin <- max(lb, limits[1])
