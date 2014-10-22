@@ -40,7 +40,7 @@ shinyServer(function(input, output, session) {
                      #"Log-Normal"="lognorm",
                      "Normal"="norm",
                      #"Pareto"="pareto",
-                     #"t"="t",
+                     "t"="t",
                      "Uniform"="unif")
                    #"Weibull"="weib")
       )
@@ -80,6 +80,7 @@ shinyServer(function(input, output, session) {
              exp = expForm,
              gam = gamForm,
              norm = normForm,
+             t = tForm,
              unif = unifForm,
       )
     }
@@ -126,7 +127,7 @@ shinyServer(function(input, output, session) {
                                                            min = input$x1 + 1),
                                   "extreme" = numericInput("x2", 
                                                            withMathJax('Enter upper value (\\(x_2\\)):'), 
-                                                           ifelse(input$distrib=="beta",0.7,3),
+                                                           ifelse(input$distrib=="beta",0.7,6),
                                                            min = input$x1 + 1),
                                   NULL
              ),
@@ -166,6 +167,7 @@ shinyServer(function(input, output, session) {
              gam = numericInput("beta", withMathJax('Enter the scale parameter of the distribution (\\(\\beta\\)):'), 5.0,
                                 min = 0),
              norm = numericInput("normMean", withMathJax('Enter the mean of the distribution (\\(\\mu\\)):'), 0.0),
+             t = numericInput("df", withMathJax('Enter the degrees of freedom (\\(\\nu\\)):'), 10.0),
              unif = numericInput("theta1", withMathJax('Enter the lower bound of the distribution (\\(\\theta_1\\)):'), 0.0),
       )
     }
@@ -227,8 +229,10 @@ shinyServer(function(input, output, session) {
     else if(input$distrib == "poi" && is.null(input$lambda)) return ()
     else if(input$distrib == "exp" && is.null(input$beta)) return ()
     else if(input$distrib == "gam" && (is.null(input$beta) || is.null(input$alpha))) return ()
+    else if(input$distrib == "beta" && (is.null(input$beta) || is.null(input$alpha))) return ()
     else if(input$distrib == "norm" && (is.null(input$normMean) || is.null(input$normVar))) return ()
     else if(input$distrib == "unif" && (is.null(input$theta1) || is.null(input$theta2))) return ()
+    else if(input$distrib == "t" && is.null(input$df)) return ()
     
     if(input$outType == "PDF" && input$percentile == "pdf" && !is.null(input$percentile)){
       if(is.null(input$xFixed)) return ()
@@ -276,6 +280,10 @@ shinyServer(function(input, output, session) {
              "gam" = gamma_prob_area_plot(input$xFixed-input$beta/50.0, input$xFixed+input$beta/50.0, shape = input$alpha, scale = input$beta,
                                           limits = c(0, qgamma(0.999, shape = as.numeric(input$alpha), 
                                                                scale = as.numeric(input$beta)))),
+             "t" = t_prob_area_plot(input$xFixed - sqrt(input$df/(input$df - 2))/50.0,
+                                    input$xFixed + sqrt(input$df/(input$df - 2))/50.0,
+                                    df = input$df
+                                    ),
              #NULL
       )
     } 
@@ -414,6 +422,10 @@ shinyServer(function(input, output, session) {
                                      qnorm(as.numeric(input$quantile), as.numeric(input$normMean), sqrt(as.numeric(input$normVar))), 
                                      mean = as.numeric(input$normMean), sd = sqrt(as.numeric(input$normVar))
       ),
+      "t" = t_prob_area_plot(floor(qt(0.001, input$df)),
+                             qt(as.numeric(input$quantile), df = input$df),
+                             df = input$df
+      ),
       "unif" = uniform_prob_area_plot(input$theta1, 
                                       qunif(input$quantile, as.numeric(input$theta1), as.numeric(input$theta2)), 
                                       min = as.numeric(input$theta1), 
@@ -429,7 +441,7 @@ shinyServer(function(input, output, session) {
                                              shape = as.numeric(input$alpha), scale = as.numeric(input$beta)), 
                                   shape = as.numeric(input$alpha), scale = as.numeric(input$beta), 
                                   limits = c(0, qgamma(0.999, shape = as.numeric(input$alpha), scale = as.numeric(input$beta)))
-      )
+      ),
       )
     }
     #Plot CDF with appropriate shading corresponding to fixed value input
@@ -479,16 +491,14 @@ shinyServer(function(input, output, session) {
                                  mainLabel = "Cumulative Distribution Function"),
              
              #Continuous
-#              "norm" = normal_prob_CDF_plot(input$xFixed, mean = input$normMean, sd = sqrt(input$normVar)),
-#              "unif" = uniform_prob_CDF_plot(input$xfixed, min = input$theta1, max = input$theta2),
-#              "exp" = exp_prob_CDF_plot(input$xFixed, shape = 1, scale = input$beta),
-#              "gam" = gamma_prob_CDF_plot(input$xFixed, shape = input$alpha, scale = input$beta),
-             #NULL
              "beta" = beta_prob_CDF_plot(input$xFixed-sqrt(as.numeric(input$alpha)*as.numeric(input$beta)/((as.numeric(input$alpha) + as.numeric(input$beta))^2*(as.numeric(input$alpha)+as.numeric(input$beta)+1)))/50.0,
                              input$xFixed+sqrt(as.numeric(input$alpha)*as.numeric(input$beta)/((as.numeric(input$alpha) + as.numeric(input$beta))^2*(as.numeric(input$alpha)+as.numeric(input$beta)+1)))/50.0,
                              shape1 = input$alpha, shape2 = input$beta),
              "norm" = normal_prob_CDF_plot(input$xFixed-sqrt(as.numeric(input$normVar))/50.0, input$xFixed+sqrt(as.numeric(input$normVar))/50.0, 
                                             mean = input$normMean, sd = sqrt(as.numeric(input$normVar))),
+             "t" = t_prob_CDF_plot(input$xFixed - sqrt(input$df/(input$df - 2))/50.0,
+                                   input$xFixed + sqrt(input$df/(input$df - 2))/50.0,
+                                   df = input$df),
              "unif" = uniform_prob_CDF_plot(input$xFixed-(input$theta2-input$theta1)/500.0, input$xFixed+(input$theta2-input$theta1)/500.0, min = input$theta1, max = input$theta2),
              "exp" = exp_prob_CDF_plot(input$xFixed-input$beta/100.0, input$xFixed+input$beta/100.0, shape = 1, scale = input$beta,
                                        limits = c(0, qgamma(0.999, shape = 1, 
@@ -753,6 +763,15 @@ shinyServer(function(input, output, session) {
                                                                extreme = TRUE),
                              #NULL
              ),
+             "t" = switch(input$probType,
+                             "between" = t_prob_area_plot(input$x1, input$x2,  df = as.numeric(input$df)),
+                             "lowerTail" = t_prob_area_plot(floor(qt(0.001, df = input$df)), input$xFixed, df = as.numeric(input$df)),
+                             "upperTail" = t_prob_area_plot(input$xFixed, ceiling(qt(0.999, df = input$df)), df = as.numeric(input$df)),
+                             "extreme" = t_prob_area_plot(input$x1, input$x2, 
+                                                               df = as.numeric(input$df),
+                                                               extreme = TRUE),
+                             #NULL
+             ),
              "unif" = switch(input$probType,
                              "between" = uniform_prob_area_plot(input$x1, input$x2, 
                                                                 min = input$theta1, max = input$theta2),
@@ -899,6 +918,13 @@ shinyServer(function(input, output, session) {
                                                 sd = sqrt(as.numeric(input$normVar))
                                           )
              )),
+             "t" = withMathJax(sprintf("$$\\mathbb{P}(X =  %.03f ) = 0 \\\\ f(X =  %.03f ) = %.04f$$", 
+                                          input$xFixed,  
+                                          input$xFixed,
+                                          dt(as.numeric(input$xFixed), 
+                                                df = as.numeric(input$df)
+                                          )
+             )),
              "unif" = withMathJax(sprintf("$$\\mathbb{P}(X =  %.03f ) = 0 \\\\ f(X =  %.03f ) = %.04f$$", 
                                           input$xFixed,  
                                           input$xFixed,
@@ -1003,6 +1029,13 @@ shinyServer(function(input, output, session) {
                                                  sd = sqrt(as.numeric(input$normVar)),
                                            )
              )),
+             "t" =  withMathJax(sprintf("$$F(%.03f) = \\mathbb{P}(X \\leq  %.03f ) = %.04f$$", 
+                                           input$xFixed, 
+                                           input$xFixed,
+                                           pt(as.numeric(input$xFixed), 
+                                                 df = as.numeric(input$df),
+                                           )
+             )),
              "unif" = withMathJax(sprintf("$$F(%.03f) = \\mathbb{P}(X \\leq  %.03f ) = %.04f$$", 
                                           input$xFixed, 
                                           input$xFixed,
@@ -1077,6 +1110,8 @@ shinyServer(function(input, output, session) {
                                  "norm" = qnorm(as.numeric(input$quantile), 
                                                 mean = as.numeric(input$normMean),
                                                 sd = sqrt(as.numeric(input$normVar))),
+                                 "t" = qt(as.numeric(input$quantile), 
+                                                df = as.numeric(input$df)),
                                  "unif" = qunif(as.numeric(input$quantile), 
                                                 min = as.numeric(input$theta1),
                                                 max = as.numeric(input$theta2)),
@@ -1152,6 +1187,8 @@ shinyServer(function(input, output, session) {
                                      - pgamma(as.numeric(input$x1), shape = as.numeric(input$alpha), scale = as.numeric(input$beta)),
                                      "norm" = pnorm(as.numeric(input$x2), mean = as.numeric(input$normMean), sd = sqrt(as.numeric(input$normVar))) 
                                      - pnorm(as.numeric(input$x1), mean = as.numeric(input$normMean), sd = sqrt(as.numeric(input$normVar))),
+                                     "t" = pt(as.numeric(input$x2), df = as.numeric(input$df)) 
+                                     - pt(as.numeric(input$x1), df = as.numeric(input$df)),
                                      "unif" = punif(as.numeric(input$x2), as.numeric(input$theta1), as.numeric(input$theta2)) 
                                      - punif(as.numeric(input$x1), as.numeric(input$theta1), as.numeric(input$theta2)), 
                                      NULL
@@ -1189,6 +1226,7 @@ shinyServer(function(input, output, session) {
                                    gam = pgamma(as.numeric(input$xFixed), shape = as.numeric(input$alpha), scale = as.numeric(input$beta)),
                                    norm = pnorm(as.numeric(input$xFixed), mean = as.numeric(input$normMean), 
                                                 sd = sqrt(as.numeric(input$normVar))),
+                                   t = pt(as.numeric(input$xFixed), df = as.numeric(input$df)),
                                    unif = punif(as.numeric(input$xFixed), as.numeric(input$theta1), as.numeric(input$theta2)),
                                    NULL
                             )
@@ -1239,6 +1277,7 @@ shinyServer(function(input, output, session) {
                                    "gam" = 1 - pgamma(as.numeric(input$xFixed), shape = as.numeric(input$alpha), scale = as.numeric(input$beta)),
                                    "norm" = 1 - pnorm(as.numeric(input$xFixed), mean = as.numeric(input$normMean), 
                                                       sd = sqrt(as.numeric(input$normVar))),
+                                   "t" = 1 - pt(as.numeric(input$xFixed), df = as.numeric(input$df)),
                                    "unif" = 1 - punif(as.numeric(input$xFixed), as.numeric(input$theta1), as.numeric(input$theta2)),
                                    NULL
                             )
@@ -1306,13 +1345,15 @@ shinyServer(function(input, output, session) {
                                      + pgamma(as.numeric(input$x1), shape = as.numeric(input$alpha), scale = as.numeric(input$beta)),
                                      "norm" = 1 - pnorm(as.numeric(input$x2), as.numeric(input$normMean), sqrt(as.numeric(input$normVar))) 
                                      + pnorm(as.numeric(input$x1), as.numeric(input$normMean), sqrt(as.numeric(input$normVar))),
+                                     "t" = 1 - pt(as.numeric(input$x2), as.numeric(input$df)) 
+                                     + pt(as.numeric(input$x1), as.numeric(input$df)),
                                      "unif" = 1 - punif(as.numeric(input$x2), as.numeric(input$theta1), as.numeric(input$theta2)) 
                                      + punif(as.numeric(input$x1), as.numeric(input$theta1), as.numeric(input$theta2)),
                                      NULL
                               )
                             }
         )
-        ) 
+        )
       }
       
       
@@ -1383,6 +1424,9 @@ shinyServer(function(input, output, session) {
              
              "norm" = withMathJax(sprintf("Mean is $$\\mathbb{E}(X) = \\mu = %.04f$$",
                                           input$normMean
+             )), 
+             
+             "t" = withMathJax(sprintf("Mean is $$\\mathbb{E}(X) = 0$$"
              )), 
              
              "unif" = withMathJax(sprintf("Mean is $$\\mathbb{E}(X) = \\frac{\\theta_1+\\theta_2}{2} = \\frac{%.03f + %.03f}{2} = %.04f$$",
@@ -1472,6 +1516,12 @@ shinyServer(function(input, output, session) {
              
              "norm" = withMathJax(sprintf("Variance is $$\\mathbb{V}(X) = \\sigma^2 = %.04f$$",
                                           input$normVar
+             )), 
+             
+             "t" = withMathJax(sprintf("Variance (for \\( \\nu > 2\\) ) is $$\\mathbb{V}(X) = \\frac{\\nu}{\\nu - 2} = \\frac{%.03f}{%.03f - 2} = %.04f$$",
+                                       input$df,
+                                       input$df,
+                                       input$df/(input$df-2)
              )), 
              
              "unif" = withMathJax(sprintf("Variance is $$\\mathbb{V}(X) = \\frac{(\\theta_2-\\theta_1)^2}{12} = \\frac{(%d - %d)^2}{12} = %.04f$$",

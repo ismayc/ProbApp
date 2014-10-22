@@ -119,6 +119,18 @@ normForm <- withMathJax(
   helpText('Variance is $$\\mathbb{V}(X) = \\sigma^2$$')
 )
 
+#Student's t
+tForm <- withMathJax(
+  h4(strong("Student's t Distribution")),
+  helpText('Support is $$ x \\in ( -\\infty, \\infty )$$'),
+  helpText('PDF is $$f(x) = \\frac{\\Gamma\\left( \\frac{\\nu + 1}{2} \\right)}{\\Gamma\\left( \\frac{\\nu}{2}\\right) \\sqrt{\\nu \\pi} } \\left( 1 + \\frac{x^2}{\\nu} \\right)^{-\\frac{\\Large\\nu+1}{\\Large2}}$$
+           \\( \\qquad \\) where $$\\Gamma(t) = \\int_0^\\infty y^{t-1} e^{-y} \\, dy$$'),
+  helpText('CDF is $$F(x) = \\mathbb{P}\\{X \\le x\\} = \\int_{-\\infty}^{x}f(t) dt$$'),
+  helpText('Mean is $$\\mathbb{E}(X) = 0$$'),
+  helpText('Variance is $$\\mathbb{V}(X) = \\frac{\\nu}{\\nu - 2}$$')
+)
+
+
 #Uniform
 unifForm <- withMathJax(
   h4(strong("Continuous Uniform Distribution")),
