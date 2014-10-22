@@ -106,6 +106,18 @@ expForm <- withMathJax(
   helpText('Variance is $$\\mathbb{V}(X) = \\beta^2$$')
 )
 
+#F
+fForm <- withMathJax(
+  h4(strong("F Distribution")),
+  helpText('Support is $$ x \\in [0, \\infty )$$'),
+  helpText('PDF is $$f(x) = \\frac{\\Gamma \\left( \\frac{d_1}{2} + \\frac{d_2}{2} \\right)}{\\Gamma \\left( \\frac{d_1}{2} \\right) \\Gamma \\left( \\frac{d_2}{2} \\right)} 
+            \\left( \\frac{d_1}{d_2} \\right)^{d_1/2} x^{{\\large \\frac{d_1}{2}} - 1} \\left(  1 + \\frac{d_1}{d_2}x \\right)^{- \\large\\frac{d_1 + d_2}{2}}$$
+           \\( \\qquad \\) where $$\\Gamma(t) = \\int_0^\\infty y^{t-1} e^{-y} \\, dy$$'),
+  helpText('CDF is $$F(x) = \\mathbb{P}\\{X \\le x\\} = \\int_{-\\infty}^{x}f(t) \\, dt$$'),
+  helpText('Mean (for \\( d_2 > 2 \\)) is $$\\mathbb{E}(X) = \\frac{d_2}{d_2 - 2}$$'),
+  helpText('Variance (for \\( d_2 > 4 \\)) is $$\\mathbb{V}(X) = \\frac{2 {d_2}^2 (d_1 + d_2 - 2)}{d_1 (d_2 - 2)^2 (d_2 - 4)}$$')
+)
+
 #Gamma
 gamForm <- withMathJax(
   h4(strong("Gamma Distribution")),

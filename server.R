@@ -33,7 +33,7 @@ shinyServer(function(input, output, session) {
                      #"Cauchy"="cauchy",
                      "Chi-square"="chisq",
                      "Exponential"="exp",
-                     #"F"="F",
+                     "F"="f",
                      "Gamma"="gam",
                      #"Laplace"="lap",
                      #"Logistic"="logi",
@@ -79,6 +79,7 @@ shinyServer(function(input, output, session) {
              beta = betaForm,
              chisq = chisqForm,
              exp = expForm,
+             f = fForm,
              gam = gamForm,
              norm = normForm,
              t = tForm,
@@ -166,6 +167,7 @@ shinyServer(function(input, output, session) {
              chisq = numericInput("df", withMathJax('Enter the degrees of freedom (\\(\\nu\\)):'), 10.0),
              exp = numericInput("beta", withMathJax('Enter the scale parameter of the distribution (\\(\\beta\\)):'), 5.0,
                                 min = 0),
+             f = numericInput("df1", withMathJax('Enter the numerator degrees of freedom (\\( d_1 \\)) :'), 5.0),
              gam = numericInput("beta", withMathJax('Enter the scale parameter of the distribution (\\(\\beta\\)):'), 5.0,
                                 min = 0),
              norm = numericInput("normMean", withMathJax('Enter the mean of the distribution (\\(\\mu\\)):'), 0.0),
@@ -194,6 +196,7 @@ shinyServer(function(input, output, session) {
              #Continuous
              beta = numericInput("alpha", withMathJax('Enter the shape parameter of the distribution (\\(\\alpha\\)):'), 2.0,
                                  min = 0),
+             f = numericInput("df2", withMathJax('Enter the denominator degrees of freedom (\\( d_2 \\)):'), 10.0),
              gam = numericInput("alpha", withMathJax('Enter the shape parameter of the distribution (\\(\\alpha\\)):'), 2.0,
                                 min = 0),
              norm = numericInput("normVar", withMathJax('Enter the variance of the distribution (\\(\\sigma^2\\)):'), 1.0,
@@ -236,6 +239,7 @@ shinyServer(function(input, output, session) {
     else if(input$distrib == "unif" && (is.null(input$theta1) || is.null(input$theta2))) return ()
     else if(input$distrib == "t" && is.null(input$df)) return ()
     else if(input$distrib == "chisq" && is.null(input$df)) return ()
+    else if(input$distrib == "f" && (is.null(input$df1) || is.null(input$df2))) return ()
     
     if(input$outType == "PDF" && input$percentile == "pdf" && !is.null(input$percentile)){
       if(is.null(input$xFixed)) return ()
@@ -277,6 +281,10 @@ shinyServer(function(input, output, session) {
              "chisq" = chisq_prob_area_plot(input$xFixed - sqrt(2*input$df)/50.0,
                                     input$xFixed + sqrt(2*input$df)/50.0,
                                     df = input$df),
+             "f" = f_prob_area_plot(input$xFixed - (qf(0.999, df1=as.numeric(input$df1), df2=as.numeric(input$df2)) - qf(0.001, df1=as.numeric(input$df1), df2=as.numeric(input$df2)))/350.0,
+                                            input$xFixed + (qf(0.999, df1=as.numeric(input$df1), df2=as.numeric(input$df2)) - qf(0.001, df1=as.numeric(input$df1), df2=as.numeric(input$df2)))/350.0,
+                                            df1 = input$df1,
+                                            df2 = input$df2),
              "norm" = normal_prob_area_plot(input$xFixed-sqrt(as.numeric(input$normVar))/50.0, input$xFixed+sqrt(as.numeric(input$normVar))/50.0, 
                                             mean = input$normMean, sd = sqrt(as.numeric(input$normVar))),
              "unif" = uniform_prob_area_plot(input$xFixed-(input$theta2-input$theta1)/500.0, input$xFixed+(input$theta2-input$theta1)/500.0, min = input$theta1, max = input$theta2),
@@ -427,6 +435,11 @@ shinyServer(function(input, output, session) {
                                      qchisq(as.numeric(input$quantile), df = as.numeric(input$df)),
                                      df = as.numeric(input$df)
       ),
+      "f" = f_prob_area_plot(0,
+                            qf(as.numeric(input$quantile), df1=as.numeric(input$df1), df2=as.numeric(input$df2)),
+                            df1 = input$df1,
+                            df2 = input$df2
+      ),
       "norm" = normal_prob_area_plot(floor(as.numeric(input$normMean) - 4 * sqrt(as.numeric(input$normVar))), 
                                      qnorm(as.numeric(input$quantile), as.numeric(input$normMean), sqrt(as.numeric(input$normVar))), 
                                      mean = as.numeric(input$normMean), sd = sqrt(as.numeric(input$normVar))
@@ -508,6 +521,10 @@ shinyServer(function(input, output, session) {
              "t" = t_prob_CDF_plot(input$xFixed - sqrt(input$df/(input$df - 2))/50.0,
                                    input$xFixed + sqrt(input$df/(input$df - 2))/50.0,
                                    df = input$df),
+             "f" = f_prob_CDF_plot(input$xFixed - (qf(0.999, df1=as.numeric(input$df1), df2=as.numeric(input$df2)) - qf(0.001, df1=as.numeric(input$df1), df2=as.numeric(input$df2)))/350.0,
+                                    input$xFixed + (qf(0.999, df1=as.numeric(input$df1), df2=as.numeric(input$df2)) - qf(0.001, df1=as.numeric(input$df1), df2=as.numeric(input$df2)))/350.0,
+                                    df1 = input$df1,
+                                    df2 = input$df2),
              "chisq" = chisq_prob_CDF_plot(input$xFixed - sqrt(2*input$df)/50.0,
                                             input$xFixed + sqrt(2*input$df)/50.0,
                                             df = input$df),
@@ -793,6 +810,16 @@ shinyServer(function(input, output, session) {
                                                        extreme = TRUE),
                           #NULL
              ),
+             "f" = switch(input$probType,
+                          "between" = f_prob_area_plot(input$x1, input$x2,  df1 = as.numeric(input$df1), df2 = as.numeric(input$df2)),
+                          "lowerTail" = f_prob_area_plot(0, input$xFixed, df1 = as.numeric(input$df1), df2 = as.numeric(input$df2)),
+                          "upperTail" = f_prob_area_plot(input$xFixed, ceiling(qf(0.999, df1 = as.numeric(input$df1), df2 = as.numeric(input$df2))), 
+                                                         df1 = as.numeric(input$df1), df2 = as.numeric(input$df2)),
+                          "extreme" = f_prob_area_plot(input$x1, input$x2, 
+                                                       df1 = as.numeric(input$df1), df2 = as.numeric(input$df2),
+                                                       extreme = TRUE),
+                          #NULL
+             ),
              "unif" = switch(input$probType,
                              "between" = uniform_prob_area_plot(input$x1, input$x2, 
                                                                 min = input$theta1, max = input$theta2),
@@ -930,6 +957,14 @@ shinyServer(function(input, output, session) {
                                                 scale = as.numeric(input$beta)
                                          )
              )),
+             "f" = withMathJax(sprintf("$$\\mathbb{P}(X =  %.03f ) = 0 \\\\ f(X =  %.03f ) = %.04f$$", 
+                                       input$xFixed,  
+                                       input$xFixed,
+                                       df(as.numeric(input$xFixed), 
+                                          df1 = as.numeric(input$df1),
+                                          df2 = as.numeric(input$df2)
+                                       )
+             )),
              "gam" = withMathJax(sprintf("$$\\mathbb{P}(X =  %.03f ) = 0 \\\\ f(X =  %.03f ) = %.04f$$", 
                                          input$xFixed,  
                                          input$xFixed,
@@ -1048,6 +1083,14 @@ shinyServer(function(input, output, session) {
                                                  scale = as.numeric(input$beta),
                                           )
              )),
+             "f" =  withMathJax(sprintf("$$F(%.03f) = \\mathbb{P}(X \\leq  %.03f ) = %.04f$$", 
+                                            input$xFixed, 
+                                            input$xFixed,
+                                            pf(as.numeric(input$xFixed), 
+                                                   df1 = as.numeric(input$df1),
+                                                   df2 = as.numeric(input$df2)
+                                            )
+             )),
              "gam" =  withMathJax(sprintf("$$F(%.03f) = \\mathbb{P}(X \\leq  %.03f ) = %.04f$$", 
                                           input$xFixed, 
                                           input$xFixed,
@@ -1141,6 +1184,9 @@ shinyServer(function(input, output, session) {
                                  "exp" = qgamma(as.numeric(input$quantile), 
                                                 shape = as.numeric(1),
                                                 scale = as.numeric(input$beta)),
+                                 "f" = qf(as.numeric(input$quantile), 
+                                          df1 = as.numeric(input$df1),
+                                          df2 = as.numeric(input$df2)),
                                  "gam" = qgamma(as.numeric(input$quantile), 
                                                 shape = as.numeric(input$alpha),
                                                 scale = as.numeric(input$beta)),
@@ -1222,6 +1268,8 @@ shinyServer(function(input, output, session) {
                                      - pchisq(as.numeric(input$x1), df = as.numeric(input$df)),
                                      "exp"  = pgamma(as.numeric(input$x2), shape = as.numeric(1), scale = as.numeric(input$beta)) 
                                      - pgamma(as.numeric(input$x1), shape = as.numeric(1), scale = as.numeric(input$beta)),
+                                     "f" = pf(as.numeric(input$x2), df1 = as.numeric(input$df1), df2 = as.numeric(input$df2)) 
+                                     - pf(as.numeric(input$x1), df1 = as.numeric(input$df1), df2 = as.numeric(input$df2)),
                                      "gam"  = pgamma(as.numeric(input$x2), shape = as.numeric(input$alpha), scale = as.numeric(input$beta)) 
                                      - pgamma(as.numeric(input$x1), shape = as.numeric(input$alpha), scale = as.numeric(input$beta)),
                                      "norm" = pnorm(as.numeric(input$x2), mean = as.numeric(input$normMean), sd = sqrt(as.numeric(input$normVar))) 
@@ -1263,6 +1311,7 @@ shinyServer(function(input, output, session) {
                                    beta = pbeta(as.numeric(input$xFixed), shape1 = as.numeric(input$alpha), shape2 = as.numeric(input$beta)),
                                    chisq = pchisq(as.numeric(input$xFixed), df = as.numeric(input$df)),
                                    exp = pgamma(as.numeric(input$xFixed), shape = as.numeric(1), scale = as.numeric(input$beta)),
+                                   f = pf(as.numeric(input$xFixed), df1 = as.numeric(input$df1), df2 = as.numeric(input$df2)),
                                    gam = pgamma(as.numeric(input$xFixed), shape = as.numeric(input$alpha), scale = as.numeric(input$beta)),
                                    norm = pnorm(as.numeric(input$xFixed), mean = as.numeric(input$normMean), 
                                                 sd = sqrt(as.numeric(input$normVar))),
@@ -1287,12 +1336,6 @@ shinyServer(function(input, output, session) {
                                    "nbin" = 1 - pnbinom(as.numeric(input$xFixed - input$numSuccesses)-1, 
                                                         as.numeric(input$numSuccesses), as.numeric(input$p)),
                                    "poi" = 1 - ppois(as.numeric(input$xFixed)-1, as.numeric(input$lambda)),
-                                   "beta" = 1 - pbeta(as.numeric(input$xFixed), shape1 = as.numeric(input$alpha), shape2 = as.numeric(input$beta)),
-                                   "exp" = 1 - pgamma(as.numeric(input$xFixed), shape = as.numeric(1), scale = as.numeric(input$beta)),
-                                   "gam" = 1 - pgamma(as.numeric(input$xFixed), shape = as.numeric(input$alpha), scale = as.numeric(input$beta)),
-                                   "norm" = 1 - pnorm(as.numeric(input$xFixed), mean = as.numeric(input$normMean), 
-                                                      sd = sqrt(as.numeric(input$normVar))),
-                                   "unif" = 1 - punif(as.numeric(input$xFixed), as.numeric(input$theta1), as.numeric(input$theta2)),
                                    NULL
                             )
         )
@@ -1303,18 +1346,10 @@ shinyServer(function(input, output, session) {
                             input$xFixed,
                             input$xFixed,
                             switch(input$distrib,
-                                   "bern" = 1 - pbinom(as.numeric(input$xFixed)-1, size = as.numeric(1), prob = as.numeric(input$p)),
-                                   "bin" = 1 - pbinom(as.numeric(input$xFixed)-1, size = as.numeric(input$numTrials), prob = as.numeric(input$p)),
-                                   "dunif" = 1 - punifdisc(as.numeric(input$xFixed)-1, as.numeric(input$a), as.numeric(input$b)),
-                                   "geom" = 1 - pgeom(as.numeric(input$xFixed)-2, prob = as.numeric(input$p)),
-                                   "hgeom" = 1 - phyper(as.numeric(input$xFixed)-1, as.numeric(input$favBalls), 
-                                                        as.numeric((input$numEvents - input$favBalls)), as.numeric(input$numTrials)),
-                                   "nbin" = 1 - pnbinom(as.numeric(input$xFixed - input$numSuccesses)-1, 
-                                                        as.numeric(input$numSuccesses), as.numeric(input$p)),
-                                   "poi" = 1 - ppois(as.numeric(input$xFixed)-1, as.numeric(input$lambda)),
                                    "beta" = 1 - pbeta(as.numeric(input$xFixed), shape1 = as.numeric(input$alpha), shape2 = as.numeric(input$beta)),
                                    "chisq" = 1 - pchisq(as.numeric(input$xFixed), df = as.numeric(input$df)),
                                    "exp" = 1 - pgamma(as.numeric(input$xFixed), shape = as.numeric(1), scale = as.numeric(input$beta)),
+                                   "f" = 1 - pf(as.numeric(input$xFixed), df1 = as.numeric(input$df1), df2 = as.numeric(input$df2)),
                                    "gam" = 1 - pgamma(as.numeric(input$xFixed), shape = as.numeric(input$alpha), scale = as.numeric(input$beta)),
                                    "norm" = 1 - pnorm(as.numeric(input$xFixed), mean = as.numeric(input$normMean), 
                                                       sd = sqrt(as.numeric(input$normVar))),
@@ -1384,6 +1419,8 @@ shinyServer(function(input, output, session) {
                                      + pchisq(as.numeric(input$x1), as.numeric(input$df)),
                                      "exp" = 1 - pgamma(as.numeric(input$x2), shape = as.numeric(1), scale = as.numeric(input$beta)) 
                                      + pgamma(as.numeric(input$x1), shape = as.numeric(1), scale = as.numeric(input$beta)),
+                                     "f" = 1 - pf(as.numeric(input$x2), as.numeric(input$df1), as.numeric(input$df2)) 
+                                     + pf(as.numeric(input$x1), as.numeric(input$df1), as.numeric(input$df2)),
                                      "gam" = 1 - pgamma(as.numeric(input$x2), shape = as.numeric(input$alpha), scale = as.numeric(input$beta)) 
                                      + pgamma(as.numeric(input$x1), shape = as.numeric(input$alpha), scale = as.numeric(input$beta)),
                                      "norm" = 1 - pnorm(as.numeric(input$x2), as.numeric(input$normMean), sqrt(as.numeric(input$normVar))) 
@@ -1461,6 +1498,12 @@ shinyServer(function(input, output, session) {
              
              "exp" = withMathJax(sprintf("Mean is $$\\mathbb{E}(X) = \\beta = %.04f$$",
                                          input$beta
+             )),
+             
+             "f" = withMathJax(sprintf("Mean (for \\( d_2 > 2 \\)) is $$\\mathbb{E}(X) = \\frac{d_2}{d_2 - 2} = \\frac{%.03f}{%.03f - 2} = %.04f$$",
+                                       input$df2,
+                                       input$df2,
+                                       input$df2/(input$df2 - 2)
              )),
              
              "gam" = withMathJax(sprintf("Mean is $$\\mathbb{E}(X) = \\alpha \\beta = %.03f \\cdot %.03f  =  %.04f$$",
@@ -1559,6 +1602,17 @@ shinyServer(function(input, output, session) {
              "exp" = withMathJax(sprintf("Variance is $$\\mathbb{V}(X) = \\beta^2 = %.04f$$",
                                          input$beta^2
              )),
+             
+             "f" = withMathJax(sprintf("Variance (for \\( d_2 > 4\\) ) is $$\\mathbb{V}(X) = \\frac{2 {d_2}^2 (d_1 + d_2 - 2)}{d_1 (d_2 - 2)^2 (d_2 - 4)}
+                                       = \\frac{2 * %.02f^2 (%.02f + %.02f - 2)}{%.02f (%.02f - 2)^2 (%.02f - 4)} = %.04f$$",
+                                       input$df2,
+                                       input$df1,
+                                       input$df2,
+                                       input$df1,
+                                       input$df2,
+                                       input$df2,
+                                       (2 * input$df2^2  * (input$df1 + input$df2 - 2))/(input$df1 * (input$df2 - 2)^2 * (input$df2 - 4))
+             )), 
              
              "gam" = withMathJax(sprintf("Variance is $$\\mathbb{V}(X) = \\alpha \\beta^2 = %d (%d)^2  =  %.04f$$",
                                          input$alpha,

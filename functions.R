@@ -1,8 +1,8 @@
 #Create functions for discrete uniform distribution
-dunifdisc<-function(x, min=0, max=1) ifelse(x>=min & x<=max & round(x)==x, 1/(max-min+1), 0)
-punifdisc<-function(q, min=0, max=1) ifelse(q<min, 0, ifelse(q>max, 1, floor(q)/(max-min+1)))
-qunifdisc<-function(p, min=0, max=1) floor(p*(max-min+1))
-runifdisc<-function(n, min=0, max=1) sample(min:max, n, replace=T)
+dunifdisc <- function(x, min=0, max=1) ifelse(x>=min & x<=max & round(x)==x, 1/(max-min+1), 0)
+punifdisc <- function(q, min=0, max=1) ifelse(q<min, 0, ifelse(q>max, 1, floor(q)/(max-min+1)))
+qunifdisc <- function(p, min=0, max=1) floor(p*(max-min+1))
+runifdisc <- function(n, min=0, max=1) sample(min:max, n, replace=T)
 
 #Function for plotting PDF and CDF
 distribPlot <- function(func = dbinom, 
@@ -94,6 +94,71 @@ chisq_prob_CDF_plot <- function(lb, ub, df = 10, limits = c(0, qchisq(0.999, df)
    + ylab("Cumulative Probability")
    + ggtitle("Chi-Square Cumulative Distribution Function\n")
    + geom_line(data.frame(x = x, y = pchisq(x, df = df)),
+               mapping = aes(x = x, y = y))
+   + geom_ribbon(data = area, 
+                 mapping = aes(x = x, ymin = ymin, ymax = ymax), 
+                 fill = "#00BA38")
+   + scale_x_continuous(limits = limits, breaks = 
+                          if(limits[2] - limits[1] <= 15) seq(ceiling(limits[1]), ceiling(limits[2]), 1)
+                        else seq(ceiling(limits[1]), ceiling(limits[2]), ceiling((limits[2] - limits[1])/15))
+   )
+   + scale_fill_manual(values=c("black"))
+   + guides(fill=FALSE))
+}
+
+#F
+f_prob_area_plot <- function(lb, ub, df1=5, df2=10, limits = c(0, qf(0.99, df1, df2)), extreme = FALSE){
+  if(is.null(limits[1]) || is.null(limits[2]) || is.null(df1) || is.null(df2)) return ()
+  x <- seq(limits[1], limits[2], length.out = 1000)
+  xmin <- max(lb, limits[1])
+  xmax <- min(ub, limits[2])
+  if(extreme == FALSE){
+    areax1 <- seq(xmin, xmax, length.out = 1000)
+    areax2 <- 0 #No area
+  } else{
+    areax1 <- seq(0, 
+                  xmin, 
+                  length.out = 1000)
+    areax2 <- seq(xmax, 
+                  qf(0.99, df1, df2), 
+                  length.out = 1000)
+  }
+  
+  area1 <- data.frame(x = areax1, ymin = 0, ymax = df(areax1, df1 = df1, df2 = df2))
+  area2 <- data.frame(x = areax2, ymin = 0, ymax = df(areax2, df1 = df1, df2 = df2))
+  (ggplot()
+   + xlab("x")
+   + ylab("Density")
+   + ggtitle("F Probability Density Function\n")
+   + geom_line(data.frame(x = x, y = df(x, df1 = df1, df2 = df2)),
+               mapping = aes(x = x, y = y))
+   + geom_ribbon(data = area1, 
+                 mapping = aes(x = x, ymin = ymin, ymax = ymax), 
+                 fill = "#00BA38")
+   + geom_ribbon(data = area2, 
+                 mapping = aes(x = x, ymin = ymin, ymax = ymax), 
+                 fill = "#00BA38")
+   + scale_x_continuous(limits = limits, breaks = 
+                          if(limits[2] - limits[1] <= 15) seq(ceiling(limits[1]), ceiling(limits[2]), 1)
+                        else seq(ceiling(limits[1]), ceiling(limits[2]), ceiling((limits[2] - limits[1])/15))
+   )
+   + scale_fill_manual(values=c("black"))
+   + guides(fill=FALSE))
+}
+
+f_prob_CDF_plot <- function(lb, ub, df1 = 5, df2 = 10, limits = c(0, qf(0.99, df1, df2))){
+  if(is.null(limits[1]) || is.null(limits[2])) return ()
+  x <- seq(limits[1], limits[2], length.out = 100)
+  xmin <- max(lb, limits[1])
+  xmax <- min(ub, limits[2])
+  areax <- seq(xmin, xmax, length.out = 100)
+  area <- data.frame(x = areax, ymin = 0, ymax = pf(areax, df1 = df1, df2 = df2))
+  
+  (ggplot()
+   + xlab("x")
+   + ylab("Cumulative Probability")
+   + ggtitle("F Cumulative Distribution Function\n")
+   + geom_line(data.frame(x = x, y = pf(x, df1 = df1, df2 = df2)),
                mapping = aes(x = x, y = y))
    + geom_ribbon(data = area, 
                  mapping = aes(x = x, ymin = ymin, ymax = ymax), 
