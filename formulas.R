@@ -80,9 +80,20 @@ betaForm <- withMathJax(
   h4(strong("Beta Distribution")),
   helpText('Support is $$ x \\in (0, 1)$$'),
   helpText('PDF is $$f(x) = \\frac{(\\alpha + \\beta - 1)!}{(\\alpha-1)!(\\beta-1)!} x^{\\alpha-1} (1-x)^{\\beta-1}$$'),
-  helpText('CDF is $$F(x) = \\mathbb{P}\\{X \\le x\\} = \\int_{-\\infty}^{x}f(t) dt$$'),
+  helpText('CDF is $$F(x) = \\mathbb{P}\\{X \\le x\\} = \\int_{-\\infty}^{x}f(t) \\, dt$$'),
   helpText('Mean is $$\\mathbb{E}(X) = \\frac{\\alpha}{\\alpha + \\beta}$$'),
   helpText('Variance is $$\\mathbb{V}(X) = \\frac{\\alpha\\beta}{(\\alpha + \\beta)^2(\\alpha + \\beta + 1)}$$')
+)
+
+#Chi-Square
+chisqForm <- withMathJax(
+  h4(strong("Chi-Square Distribution")),
+  helpText('Support is $$ x \\in [0, \\infty )$$'),
+  helpText('PDF is $$f(x) = \\frac{1}{2^{\\nu/2} \\, \\Gamma\\left( \\frac{\\nu}{2}\\right)} x^{{\\large \\frac{\\nu}{2}} - 1} e^{-\\large \\frac{x}{2}}$$
+           \\( \\qquad \\) where $$\\Gamma(t) = \\int_0^\\infty y^{t-1} e^{-y} \\, dy$$'),
+  helpText('CDF is $$F(x) = \\mathbb{P}\\{X \\le x\\} = \\int_{-\\infty}^{x}f(t) \\, dt$$'),
+  helpText('Mean is $$\\mathbb{E}(X) = \\nu$$'),
+  helpText('Variance is $$\\mathbb{V}(X) = 2\\nu$$')
 )
 
 #Exponential
@@ -90,7 +101,7 @@ expForm <- withMathJax(
   h4(strong("Exponential Distribution")),
   helpText('Support is $$ x \\in [0, \\infty )$$'),
   helpText('PDF is $$f(x) = \\frac{e^{-x/\\beta}}{\\beta }$$'),
-  helpText('CDF is $$F(x) = \\mathbb{P}\\{X \\le x\\} = \\int_{-\\infty}^{x}f(t) dt$$'),
+  helpText('CDF is $$F(x) = \\mathbb{P}\\{X \\le x\\} = \\int_{-\\infty}^{x}f(t) \\, dt$$'),
   helpText('Mean is $$\\mathbb{E}(X) = \\beta$$'),
   helpText('Variance is $$\\mathbb{V}(X) = \\beta^2$$')
 )
@@ -104,7 +115,7 @@ gamForm <- withMathJax(
   #         $$\\mbox{ for } \\alpha = 1, \\, \\, F(x) = 1 - e^{-x/\\beta}$$
   #         $$\\mbox{ for } \\alpha = 2, \\, \\, F(x)= 1 - e^{-x/\\beta} - \\left( \\frac{x}{\\beta} \\right) e^{-x/\\beta} $$
   #         $$\\mbox{ for } \\alpha = 3, \\, \\, F(x)= 1 - e^{-x/\\beta} - \\left( \\frac{x}{\\beta} \\right) e^{-x/\\beta} - \\left(\\frac{(x/\\beta)^2}{2}e^{-x/\\beta}  \\right) $$'),
-  helpText('CDF is $$F(x) = \\mathbb{P}\\{X \\le x\\} = \\int_{-\\infty}^{x}f(t) dt$$'),
+  helpText('CDF is $$F(x) = \\mathbb{P}\\{X \\le x\\} = \\int_{-\\infty}^{x}f(t) \\, dt$$'),
   helpText('Mean is $$\\mathbb{E}(X) = \\alpha\\beta$$'),
   helpText('Variance is $$\\mathbb{V}(X) = \\alpha\\beta^2$$')
 )
@@ -114,7 +125,7 @@ normForm <- withMathJax(
   h4(strong("Normal Distribution")),
   helpText('Support is $$ x \\in ( -\\infty, \\infty )$$'),
   helpText('PDF is $$f(x) = \\frac{1}{\\sigma \\sqrt{2\\pi}}e^{-(x-\\mu)/2\\sigma^2}$$'),
-  helpText('CDF is $$F(x) = \\mathbb{P}\\{X \\le x\\} = \\int_{-\\infty}^{x}f(t) dt$$'),
+  helpText('CDF is $$F(x) = \\mathbb{P}\\{X \\le x\\} = \\int_{-\\infty}^{x}f(t) \\, dt$$'),
   helpText('Mean is $$\\mathbb{E}(X) = \\mu$$'),
   helpText('Variance is $$\\mathbb{V}(X) = \\sigma^2$$')
 )
@@ -125,7 +136,7 @@ tForm <- withMathJax(
   helpText('Support is $$ x \\in ( -\\infty, \\infty )$$'),
   helpText('PDF is $$f(x) = \\frac{\\Gamma\\left( \\frac{\\nu + 1}{2} \\right)}{\\Gamma\\left( \\frac{\\nu}{2}\\right) \\sqrt{\\nu \\pi} } \\left( 1 + \\frac{x^2}{\\nu} \\right)^{-\\frac{\\Large\\nu+1}{\\Large2}}$$
            \\( \\qquad \\) where $$\\Gamma(t) = \\int_0^\\infty y^{t-1} e^{-y} \\, dy$$'),
-  helpText('CDF is $$F(x) = \\mathbb{P}\\{X \\le x\\} = \\int_{-\\infty}^{x}f(t) dt$$'),
+  helpText('CDF is $$F(x) = \\mathbb{P}\\{X \\le x\\} = \\int_{-\\infty}^{x}f(t) \\, dt$$'),
   helpText('Mean is $$\\mathbb{E}(X) = 0$$'),
   helpText('Variance is $$\\mathbb{V}(X) = \\frac{\\nu}{\\nu - 2}$$')
 )
@@ -137,7 +148,7 @@ unifForm <- withMathJax(
   helpText('Support is $$ x \\in [ \\theta_1, \\theta_2 ]$$'),
   helpText('PDF is $$f(x) = \\frac{1}{\\theta_2-\\theta_1}$$'),
   #helpText('CDF is $$F(x) = \\frac{x-\\theta_1}{\\theta_2-\\theta_1}$$'),
-  helpText('CDF is $$F(x) = \\mathbb{P}\\{X \\le x\\} = \\int_{-\\infty}^{x}f(t) dt$$'),
+  helpText('CDF is $$F(x) = \\mathbb{P}\\{X \\le x\\} = \\int_{-\\infty}^{x}f(t) \\, dt$$'),
   helpText('Mean is $$\\mathbb{E}(X) = \\frac{\\theta_1 +\\theta_2}{2}$$'),
   helpText('Variance is $$\\mathbb{V}(X) = \\frac{(\\theta_2-\\theta_1)^2}{12}$$')
 )
