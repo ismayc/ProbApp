@@ -1,4 +1,3 @@
-
 # This is the user-interface definition of a Shiny web application.
 # You can find out more about building applications with Shiny here:
 # 
@@ -8,13 +7,20 @@
 library(shiny)
 library(ggplot2)
 
-shinyUI(pageWithSidebar(
+shinyUI(fluidPage(
+  #pageWithSidebar(
   
   # Application title
-  headerPanel("Calculator for Probability Distributions"),
+  titlePanel(h3("Calculator for Probability Distributions"), 
+             windowTitle = "Calculator for Probability Distributions by Chester Ismay and Logan Soich"),
+  p("Developed by Dr. Chester Ismay (", a("ismayc@ripon.edu", href="mailto:ismayc@ripon.edu"),
+    ") and Logan Soich (", a("soichlo@ripon.edu", href="mailto:soichlo@ripon.edu"), ")"
+    ),
   
+  sidebarLayout(
   # Sidebar
   sidebarPanel(
+    
     wellPanel(radioButtons("distType",strong("Distribution Type:"),
                            list("Discrete","Continuous"),
                            selected="Discrete") ),
@@ -46,12 +52,13 @@ shinyUI(pageWithSidebar(
     uiOutput("percentCalc"),
     uiOutput("fixedVal1"),
     uiOutput("fixedVal2"),
-
+    
     
     uiOutput("distribCalc"),
     uiOutput("probTypeSelect"),
     uiOutput("probCalc")
     
+  )
   )
 )
 )
