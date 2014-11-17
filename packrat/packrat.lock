@@ -213,6 +213,16 @@ Version: 1.4
 Hash: e50809918ebb73dff47de17d36d12975
 Requires: Rcpp, plyr, stringr
 
+Package: rmarkdown
+Source: github
+Version: 0.3.12
+Hash: e3cc1c3c312486bea6d8850f7604f12a93490c06
+Requires: caTools, htmltools, knitr, yaml
+GithubRepo: rmarkdown
+GithubUsername: rstudio
+GithubRef: master
+GithubSha1: e3cc1c3c312486bea6d8850f7604f12a93490c06
+
 Package: scales
 Source: CRAN
 Version: 0.2.4
@@ -244,3 +254,8 @@ Package: xtable
 Source: CRAN
 Version: 1.7-4
 Hash: 7b30b5ca6c7ae80c4f916502e3ad0237
+
+Package: yaml
+Source: CRAN
+Version: 2.1.13
+Hash: e5d041c001f6d641fd009c1f6ef7d831

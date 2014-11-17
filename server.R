@@ -138,7 +138,6 @@ shinyServer(function(input, output, session) {
     }
   }) 
   
-  
   #Prompt for first input parameter into distribution
   output$param1 <- renderUI({
     if(is.null(input$distrib)) return ()
@@ -804,7 +803,7 @@ shinyServer(function(input, output, session) {
              "chisq" = switch(input$probType,
                           "between" = chisq_prob_area_plot(input$x1, input$x2,  df = as.numeric(input$df)),
                           "lowerTail" = chisq_prob_area_plot(0, input$xFixed, df = as.numeric(input$df)),
-                          "upperTail" = chisq_prob_area_plot(input$xFixed, ceiling(qt(0.999, df = input$df)), df = as.numeric(input$df)),
+                          "upperTail" = chisq_prob_area_plot(input$xFixed, qchisq(0.999, df = input$df), df = as.numeric(input$df)),
                           "extreme" = chisq_prob_area_plot(input$x1, input$x2, 
                                                        df = as.numeric(input$df),
                                                        extreme = TRUE),
