@@ -215,13 +215,13 @@ Requires: Rcpp, plyr, stringr
 
 Package: rmarkdown
 Source: github
-Version: 0.3.12
-Hash: e3cc1c3c312486bea6d8850f7604f12a93490c06
+Version: 0.3.13
+Hash: 8e84a541c474f082afcf7ddb49e78dd1c84cf026
 Requires: caTools, htmltools, knitr, yaml
 GithubRepo: rmarkdown
 GithubUsername: rstudio
 GithubRef: master
-GithubSha1: e3cc1c3c312486bea6d8850f7604f12a93490c06
+GithubSha1: 8e84a541c474f082afcf7ddb49e78dd1c84cf026
 
 Package: scales
 Source: CRAN
