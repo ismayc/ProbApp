@@ -2,3 +2,4 @@ name: ProbApp
 account: ismay
 bundleId: 71564
 url: http://ismay.shinyapps.io/ProbApp
+server: shinyapps.io

@@ -1,5 +1,5 @@
 PackratFormat: 1.4
-PackratVersion: 0.4.1.8
+PackratVersion: 0.4.2.7
 RVersion: 3.1.0
 Repos: CRAN=http://cran.rstudio.com/
 
@@ -12,6 +12,12 @@ Package: DBI
 Source: CRAN
 Version: 0.3.1
 Hash: 3a9e85b26ec3ab570266bccb3f9de055
+
+Package: PKI
+Source: CRAN
+Version: 0.1-1
+Hash: ea706fc6404e103ce7760767c37cddb6
+Requires: base64enc
 
 Package: R6
 Source: CRAN
@@ -43,6 +49,11 @@ Package: assertthat
 Source: CRAN
 Version: 0.1
 Hash: 4b419cfdc33a3019a7f3c6f0cdea6c38
+
+Package: base64enc
+Source: CRAN
+Version: 0.1-2
+Hash: 290e385e048cebab0e8d8d301b84ac75
 
 Package: bitops
 Source: CRAN
@@ -189,12 +200,12 @@ Requires: colorspace
 
 Package: packrat
 Source: github
-Version: 0.4.1.8
-Hash: ee57b7e7ba891d23079b12f1ff5106d0db0594e5
+Version: 0.4.2-7
+Hash: bf1677422e700ec0e1ce0481d3a7551f511ddb0a
 GithubRepo: packrat
 GithubUsername: rstudio
-GithubRef: v0.98.1000
-GithubSha1: ee57b7e7ba891d23079b12f1ff5106d0db0594e5
+GithubRef: master
+GithubSha1: bf1677422e700ec0e1ce0481d3a7551f511ddb0a
 
 Package: plyr
 Source: CRAN
@@ -222,6 +233,16 @@ GithubRepo: rmarkdown
 GithubUsername: rstudio
 GithubRef: master
 GithubSha1: 8e84a541c474f082afcf7ddb49e78dd1c84cf026
+
+Package: rsconnect
+Source: github
+Version: 0.3.70
+Hash: 6318ad5041903ed6f253f6f9e1b54d8efb5fa6d9
+Requires: PKI, RCurl, RJSONIO, digest, packrat
+GithubRepo: rsconnect
+GithubUsername: rstudio
+GithubRef: master
+GithubSha1: 6318ad5041903ed6f253f6f9e1b54d8efb5fa6d9
 
 Package: scales
 Source: CRAN
