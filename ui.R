@@ -117,7 +117,7 @@ shinyUI(fluidPage(
       ),   
       
       
-      conditionalPanel(condition = "input.outType != 'Formulas' && input.distrib == 'gamma'",
+      conditionalPanel(condition = "input.outType != 'Formulas' && input.distrib == 'gam'",
                        numericInput("betaG", withMathJax('Enter the scale parameter of the distribution (\\(\\beta\\)):'), 5.0,
                                     min = 0),
                        numericInput("alphaG", withMathJax('Enter the shape parameter of the distribution (\\(\\alpha\\)):'), 2.0,
