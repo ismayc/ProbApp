@@ -104,11 +104,12 @@ shinyServer(function(input, output, session) {
     if(is.null(input$probType) || is.null(input$distrib)) return ()
     if(input$outType != "Formulas"){
       switch(input$outType,
-             PDF = if(input$percentile == "quant" && !is.null(input$percentile)) return () 
-             else numericInput("xFixed", withMathJax('Enter a discrete value (\\(x\\)):'), 
-                               ifelse(input$distrib=="beta",0.5,3.0)),
              CDF = numericInput("xFixed", withMathJax('Enter a discrete value (\\(x\\)):'), 
                                 ifelse(input$distrib=="beta",0.5,1.0)),
+             PDF = if(input$percentile == "quant" && !is.null(input$percentile)) return () 
+             else 
+               numericInput("xFixed", withMathJax('Enter a discrete value (\\(x\\)):'), 
+                            ifelse(input$distrib=="beta",0.5,3.0)),
              Probability = switch(input$probType,
                                   "between" = numericInput("x1", 
                                                            withMathJax('Enter lower value (\\(x_1\\)):'), 
@@ -261,8 +262,8 @@ shinyServer(function(input, output, session) {
              )
              #To get the default shading colors to black with green
              + scale_fill_manual(values= 
-                                 if (!is.null(input$quantile) && !is.null(input$numBinTrials) && !is.null(input$p) && 
-                                     qbinom(input$quantile, input$numBinTrials, input$p) == input$numBinTrials){c("#00BA38", "#000000")}
+                                   if (!is.null(input$quantile) && !is.null(input$numBinTrials) && !is.null(input$p) && 
+                                         qbinom(input$quantile, input$numBinTrials, input$p) == input$numBinTrials){c("#00BA38", "#000000")}
                                  else{c("#000000", "#00BA38")})
              + guides(fill=FALSE), 
              "dunif" = qplot(factor(input$a:input$b), 
@@ -278,8 +279,8 @@ shinyServer(function(input, output, session) {
              )
              #To get the default shading colors to black with green
              + scale_fill_manual(values= 
-                                 if (!is.null(input$quantile) && !is.null(input$a) && !is.null(input$b) &&
-                                     qunifdisc(input$quantile, input$a, input$b) == input$b){c("#00BA38", "#000000")}
+                                   if (!is.null(input$quantile) && !is.null(input$a) && !is.null(input$b) &&
+                                         qunifdisc(input$quantile, input$a, input$b) == input$b){c("#00BA38", "#000000")}
                                  else{c("#000000", "#00BA38")})
              + guides(fill=FALSE),
              "geom" = qplot(factor(1:ceiling(qgeom(0.9999, prob=input$pBG)+1)),  ##### How large to set the bounds?
@@ -295,8 +296,8 @@ shinyServer(function(input, output, session) {
              )
              #To get the default shading colors to black with green
              + scale_fill_manual(values= 
-                                 if (!is.null(input$quantile) && !is.null(input$pBG) && 
-                                     ceiling(qgeom(0.9999, prob=input$pBG)) <= qgeom(as.numeric(input$quantile), as.numeric(input$pBG)) + 1){c("#00BA38", "#000000")}
+                                   if (!is.null(input$quantile) && !is.null(input$pBG) && 
+                                         ceiling(qgeom(0.9999, prob=input$pBG)) <= qgeom(as.numeric(input$quantile), as.numeric(input$pBG)) + 1){c("#00BA38", "#000000")}
                                  else{c("#000000", "#00BA38")})
              + guides(fill=FALSE), 
              "hgeom" = qplot(factor(max(0, input$numTrials+input$favBalls-input$numEvents):min(input$favBalls, input$numTrials)), 
@@ -315,9 +316,9 @@ shinyServer(function(input, output, session) {
                              else {-1}
              )
              + scale_fill_manual(values= 
-                                 if ((!is.null(input$quantile) && !is.null(input$favBalls) && !is.null(input$numEvents) && !is.null(input$numTrials)) &&
-                                     qhyper(as.numeric(input$quantile), as.numeric(input$favBalls), (as.numeric(input$numEvents) - as.numeric(input$favBalls)), 
-                                            as.numeric(input$numTrials)) == input$favBalls){c("#00BA38", "#000000")}
+                                   if ((!is.null(input$quantile) && !is.null(input$favBalls) && !is.null(input$numEvents) && !is.null(input$numTrials)) &&
+                                         qhyper(as.numeric(input$quantile), as.numeric(input$favBalls), (as.numeric(input$numEvents) - as.numeric(input$favBalls)), 
+                                                as.numeric(input$numTrials)) == input$favBalls){c("#00BA38", "#000000")}
                                  else{c("#000000", "#00BA38")})
              + guides(fill=FALSE), 
              "nbin" = qplot(factor(input$numSuccesses:ceiling(qnbinom(0.9999, size=input$numSuccesses, prob=input$pNeg))), 
@@ -333,9 +334,9 @@ shinyServer(function(input, output, session) {
                             else {-1}
              )
              + scale_fill_manual(values=  if(!is.null(input$quantile) && !is.null(input$numSuccesses) && !is.null(input$pNeg) &&
-                                             ceiling(qnbinom(0.9999, size=input$numSuccesses, prob=input$pNeg)) <= qnbinom(as.numeric(input$quantile), 
-                                                                                                                           as.numeric(input$numSuccesses), 
-                                                                                                                           as.numeric(input$pNeg)) + as.numeric(input$numSuccesses)){c("#00BA38", "#000000")}
+                                               ceiling(qnbinom(0.9999, size=input$numSuccesses, prob=input$pNeg)) <= qnbinom(as.numeric(input$quantile), 
+                                                                                                                             as.numeric(input$numSuccesses), 
+                                                                                                                             as.numeric(input$pNeg)) + as.numeric(input$numSuccesses)){c("#00BA38", "#000000")}
                                  else{c("#000000", "#00BA38")})
              + guides(fill=FALSE), 
              "poi" = qplot(factor(0:ceiling(qpois(0.9999, input$lambda))),
@@ -351,7 +352,7 @@ shinyServer(function(input, output, session) {
              )
              #To get the default shading colors to black with green
              + scale_fill_manual(values= if(!is.null(input$quantile) && !is.null(input$lambda) && 
-                                            ceiling(qpois(0.9999, input$lambda)) <= qpois(input$quantile, input$lambda)){c("#00BA38", "#000000")}
+                                              ceiling(qpois(0.9999, input$lambda)) <= qpois(input$quantile, input$lambda)){c("#00BA38", "#000000")}
                                  else{c("#000000", "#00BA38")})
              + guides(fill=FALSE),
              
@@ -396,25 +397,25 @@ shinyServer(function(input, output, session) {
     }
     #Plot CDF with appropriate shading corresponding to fixed value input
     else if(input$outType == "CDF"){
-      if(is.null(input$xFixedPC)) return ()
+      if(is.null(input$xFixedL)) return ()
       switch(input$distrib,
              "bern" = distribPlot(func = pbinom, range = 0:1, args = c(1, input$pBG),
-                                  inputValue = input$xFixedPC, xlabel = "Number of Successes",
+                                  inputValue = input$xFixedL, xlabel = "Number of Successes",
                                   distribName = "Bernoulli", plotType = "Cumulative",
                                   mainLabel = "Cumulative Distribution Function"),
              
              "bin" = distribPlot(func = pbinom, range = 0:input$numBinTrials, args = c(input$numBinTrials, input$p),
-                                 inputValue = input$xFixedPC, xlabel = "Number of Successes",
+                                 inputValue = input$xFixedL, xlabel = "Number of Successes",
                                  distribName = "Binomial", plotType = "Cumulative",
                                  mainLabel = "Cumulative Distribution Function"),
              
              "dunif" = distribPlot(func = punifdisc, range = input$a:input$b, args = c(input$a, input$b),
-                                   inputValue = input$xFixedPC, xlabel = "Discrete Values",
+                                   inputValue = input$xFixedL, xlabel = "Discrete Values",
                                    distribName = "Discrete Uniform", plotType = "Cumulative",
                                    mainLabel = "Cumulative Distribution Function"),
              
              "geom" = distribPlot(func = pgeom, range = 1:ceiling(qgeom(0.9999, prob=input$pBG)), args = c(input$pBG),
-                                  inputValue = input$xFixedPC, xlabel = "Number of Trials",
+                                  inputValue = input$xFixedL, xlabel = "Number of Trials",
                                   distribName = "Geometric", numArgs = 1, paramAdjust = 1,
                                   plotType = "Cumulative",
                                   mainLabel = "Cumulative Distribution Function"),
@@ -422,45 +423,45 @@ shinyServer(function(input, output, session) {
              "hgeom" = distribPlot(func = phyper, 
                                    range = max(0, input$numTrials+input$favBalls-input$numEvents):min(input$favBalls, input$numTrials), 
                                    args = c(input$favBalls, (input$numEvents - input$favBalls), input$numTrials),
-                                   inputValue = input$xFixedPC, distribName = "Hypergeometric", numArgs = 3,
+                                   inputValue = input$xFixedL, distribName = "Hypergeometric", numArgs = 3,
                                    plotType = "Cumulative",
                                    mainLabel = "Cumulative Distribution Function"),
              
              "nbin" = distribPlot(func = pnbinom, range = input$numSuccesses:ceiling(qnbinom(0.9999, size=input$numSuccesses, prob=input$pNeg)), 
                                   args = c(input$numSuccesses, input$pNeg),
-                                  inputValue = input$xFixedPC, xlabel = "Number of Trials",
+                                  inputValue = input$xFixedL, xlabel = "Number of Trials",
                                   distribName = "Negative Binomial", paramAdjust = input$numSuccesses,
                                   plotType = "Cumulative",
                                   mainLabel = "Cumulative Distribution Function"),
              
              "poi" = distribPlot(func = ppois, range = 0:ceiling(qpois(0.9999, input$lambda)),
-                                 args = c(input$lambda), inputValue = input$xFixedPC,
+                                 args = c(input$lambda), inputValue = input$xFixedL,
                                  xlabel = "Number of Occurrences",
                                  distribName = "Poisson", numArgs = 1,
                                  plotType = "Cumulative",
                                  mainLabel = "Cumulative Distribution Function"),
              
              #Continuous
-             "beta" = beta_prob_CDF_plot(input$xFixedPC-sqrt(as.numeric(input$alpha)*as.numeric(input$beta)/((as.numeric(input$alpha) + as.numeric(input$beta))^2*(as.numeric(input$alpha)+as.numeric(input$beta)+1)))/50.0,
-                                         input$xFixedPC+sqrt(as.numeric(input$alpha)*as.numeric(input$beta)/((as.numeric(input$alpha) + as.numeric(input$beta))^2*(as.numeric(input$alpha)+as.numeric(input$beta)+1)))/50.0,
+             "beta" = beta_prob_CDF_plot(input$xFixedL-sqrt(as.numeric(input$alpha)*as.numeric(input$beta)/((as.numeric(input$alpha) + as.numeric(input$beta))^2*(as.numeric(input$alpha)+as.numeric(input$beta)+1)))/50.0,
+                                         input$xFixedL+sqrt(as.numeric(input$alpha)*as.numeric(input$beta)/((as.numeric(input$alpha) + as.numeric(input$beta))^2*(as.numeric(input$alpha)+as.numeric(input$beta)+1)))/50.0,
                                          shape1 = input$alpha, shape2 = input$beta),
-             "norm" = normal_prob_CDF_plot(input$xFixedPC-sqrt(as.numeric(input$normVar))/50.0, input$xFixedPC+sqrt(as.numeric(input$normVar))/50.0, 
+             "norm" = normal_prob_CDF_plot(input$xFixedL-sqrt(as.numeric(input$normVar))/50.0, input$xFixedL+sqrt(as.numeric(input$normVar))/50.0, 
                                            mean = input$normMean, sd = sqrt(as.numeric(input$normVar))),
-             "t" = t_prob_CDF_plot(input$xFixedPC - sqrt(input$df/(input$df - 2))/50.0,
-                                   input$xFixedPC + sqrt(input$df/(input$df - 2))/50.0,
+             "t" = t_prob_CDF_plot(input$xFixedL - sqrt(input$df/(input$df - 2))/50.0,
+                                   input$xFixedL + sqrt(input$df/(input$df - 2))/50.0,
                                    df = input$df),
-             "f" = f_prob_CDF_plot(input$xFixedPC - (qf(0.999, df1=as.numeric(input$df1), df2=as.numeric(input$df2)) - qf(0.001, df1=as.numeric(input$df1), df2=as.numeric(input$df2)))/350.0,
-                                   input$xFixedPC + (qf(0.999, df1=as.numeric(input$df1), df2=as.numeric(input$df2)) - qf(0.001, df1=as.numeric(input$df1), df2=as.numeric(input$df2)))/350.0,
+             "f" = f_prob_CDF_plot(input$xFixedL - (qf(0.999, df1=as.numeric(input$df1), df2=as.numeric(input$df2)) - qf(0.001, df1=as.numeric(input$df1), df2=as.numeric(input$df2)))/350.0,
+                                   input$xFixedL + (qf(0.999, df1=as.numeric(input$df1), df2=as.numeric(input$df2)) - qf(0.001, df1=as.numeric(input$df1), df2=as.numeric(input$df2)))/350.0,
                                    df1 = input$df1,
                                    df2 = input$df2),
-             "chisq" = chisq_prob_CDF_plot(input$xFixedPC - sqrt(2*input$df)/50.0,
-                                           input$xFixedPC + sqrt(2*input$df)/50.0,
+             "chisq" = chisq_prob_CDF_plot(input$xFixedL - sqrt(2*input$df)/50.0,
+                                           input$xFixedL + sqrt(2*input$df)/50.0,
                                            df = input$df),
-             "unif" = uniform_prob_CDF_plot(input$xFixedPC-(input$theta2-input$theta1)/500.0, input$xFixedPC+(input$theta2-input$theta1)/500.0, min = input$theta1, max = input$theta2),
-             "exp" = exp_prob_CDF_plot(input$xFixedPC-input$betaE/100.0, input$xFixedPC+input$betaE/100.0, shape = 1, scale = input$betaE,
+             "unif" = uniform_prob_CDF_plot(input$xFixedL-(input$theta2-input$theta1)/500.0, input$xFixedL+(input$theta2-input$theta1)/500.0, min = input$theta1, max = input$theta2),
+             "exp" = exp_prob_CDF_plot(input$xFixedL-input$betaE/100.0, input$xFixedL+input$betaE/100.0, shape = 1, scale = input$betaE,
                                        limits = c(0, qgamma(0.999, shape = 1, 
                                                             scale = as.numeric(input$betaE)))),
-             "gam" = gamma_prob_CDF_plot(input$xFixedPC-input$beta/50.0, input$xFixedPC+input$betaG/50.0, shape = input$alphaG, scale = input$betaG,
+             "gam" = gamma_prob_CDF_plot(input$xFixedL-input$beta/50.0, input$xFixedL+input$betaG/50.0, shape = input$alphaG, scale = input$betaG,
                                          limits = c(0, qgamma(0.999, shape = as.numeric(input$alphaG), 
                                                               scale = as.numeric(input$betaG)))),
              
@@ -490,9 +491,9 @@ shinyServer(function(input, output, session) {
                             )
              )
              + scale_fill_manual(values=
-                                 if(input$probType == "between" && pbinom(input$x2, 1, input$pBG) - pbinom(input$x1 - 1, 1, input$pBG) == 1){
-                                   c("#00BA38", "black")
-                                 }
+                                   if(input$probType == "between" && pbinom(input$x2, 1, input$pBG) - pbinom(input$x1 - 1, 1, input$pBG) == 1){
+                                     c("#00BA38", "black")
+                                   }
                                  else if(input$probType == "lowerTail" && pbinom(input$xFixedL, 1, input$pBG) == 1){
                                    c("#00BA38", "black")
                                  }
@@ -590,6 +591,7 @@ shinyServer(function(input, output, session) {
                               )
                             }
              )
+             
              #To get the default shading colors to black with green
              + scale_fill_manual(values= if(input$probType == "extreme"){ 
                if(input$x2 - input$x1 > 1){c("#000000", "#00BA38")} 
@@ -928,43 +930,43 @@ shinyServer(function(input, output, session) {
       )
       #Produce CDF value in nice LaTeX output
     } else if(input$outType == "CDF"){
-      if(is.null(input$distrib) || is.null(input$xFixedPC)) return ()
+      if(is.null(input$distrib) || is.null(input$xFixedL)) return ()
       switch(input$distrib,
              "bern" = withMathJax(sprintf("$$F(%.03f) = \\mathbb{P}(X \\leq  %.03f ) = %.04f$$", 
-                                          input$xFixedPC, 
-                                          input$xFixedPC, 
-                                          pbinom(as.numeric(input$xFixedPC), 
+                                          input$xFixedL, 
+                                          input$xFixedL, 
+                                          pbinom(as.numeric(input$xFixedL), 
                                                  size = as.numeric(1), 
                                                  prob = as.numeric(input$pBG)
                                           )
              )),
              "bin" = withMathJax(sprintf("$$F(%.03f) = \\mathbb{P}(X \\leq  %.03f ) = %.04f$$", 
-                                         input$xFixedPC, 
-                                         input$xFixedPC,
-                                         pbinom(as.numeric(input$xFixedPC), 
+                                         input$xFixedL, 
+                                         input$xFixedL,
+                                         pbinom(as.numeric(input$xFixedL), 
                                                 size = as.numeric(input$numBinTrials), 
                                                 prob = as.numeric(input$p)
                                          )
              )),
              "dunif" = withMathJax(sprintf("$$F(%.03f) = \\mathbb{P}(X \\leq  %.03f ) = %.04f$$", 
-                                           input$xFixedPC, 
-                                           input$xFixedPC,
-                                           punifdisc(as.numeric(input$xFixedPC), 
+                                           input$xFixedL, 
+                                           input$xFixedL,
+                                           punifdisc(as.numeric(input$xFixedL), 
                                                      as.numeric(input$a), 
                                                      as.numeric(input$b)
                                            )
              )),
              "geom" = withMathJax(sprintf("$$F(%.03f) = \\mathbb{P}(X \\leq  %.03f ) = %.04f$$", 
-                                          input$xFixedPC, 
-                                          input$xFixedPC,
-                                          pgeom(as.numeric(input$xFixedPC)-1, 
+                                          input$xFixedL, 
+                                          input$xFixedL,
+                                          pgeom(as.numeric(input$xFixedL)-1, 
                                                 prob = as.numeric(input$pBG)
                                           )
              )),
              "hgeom" = withMathJax(sprintf("$$F(%.03f) = \\mathbb{P}(X \\leq %.03f ) = %.04f$$", 
-                                           input$xFixedPC,
-                                           input$xFixedPC,
-                                           phyper(as.numeric(input$xFixedPC), 
+                                           input$xFixedL,
+                                           input$xFixedL,
+                                           phyper(as.numeric(input$xFixedL), 
                                                   as.numeric(input$favBalls), 
                                                   as.numeric((input$numEvents - input$favBalls)), 
                                                   as.numeric(input$numTrials)
@@ -972,80 +974,80 @@ shinyServer(function(input, output, session) {
                                            
              )),
              "nbin" = withMathJax(sprintf("$$F(%.03f) = \\mathbb{P}(X \\leq %.03f ) = %.04f$$", 
-                                          input$xFixedPC,
-                                          input$xFixedPC,
-                                          pnbinom(as.numeric(input$xFixedPC) - as.numeric(input$numSuccesses), 
+                                          input$xFixedL,
+                                          input$xFixedL,
+                                          pnbinom(as.numeric(input$xFixedL) - as.numeric(input$numSuccesses), 
                                                   as.numeric(input$numSuccesses), 
                                                   as.numeric(input$pNeg)
                                           )
              )),
              "poi" =  withMathJax(sprintf("$$F(%.03f) = \\mathbb{P}(X \\leq  %.03f ) = %.04f$$", 
-                                          input$xFixedPC, 
-                                          input$xFixedPC,
-                                          ppois(as.numeric(input$xFixedPC), 
+                                          input$xFixedL, 
+                                          input$xFixedL,
+                                          ppois(as.numeric(input$xFixedL), 
                                                 lambda = as.numeric(input$lambda), 
                                           )
              )),
              
              #Continuous
              "beta" =  withMathJax(sprintf("$$F(%.03f) = \\mathbb{P}(X \\leq  %.03f ) = %.04f$$", 
-                                           input$xFixedPC, 
-                                           input$xFixedPC,
-                                           pbeta(as.numeric(input$xFixedPC), 
+                                           input$xFixedL, 
+                                           input$xFixedL,
+                                           pbeta(as.numeric(input$xFixedL), 
                                                  shape1 = as.numeric(input$alpha),
                                                  shape2 = as.numeric(input$beta),
                                            )
              )),
              "chisq" =  withMathJax(sprintf("$$F(%.03f) = \\mathbb{P}(X \\leq  %.03f ) = %.04f$$", 
-                                            input$xFixedPC, 
-                                            input$xFixedPC,
-                                            pchisq(as.numeric(input$xFixedPC), 
+                                            input$xFixedL, 
+                                            input$xFixedL,
+                                            pchisq(as.numeric(input$xFixedL), 
                                                    df = as.numeric(input$df),
                                             )
              )),
              "exp" =  withMathJax(sprintf("$$F(%.03f) = \\mathbb{P}(X \\leq  %.03f ) = %.04f$$", 
-                                          input$xFixedPC, 
-                                          input$xFixedPC,
-                                          pgamma(as.numeric(input$xFixedPC), 
+                                          input$xFixedL, 
+                                          input$xFixedL,
+                                          pgamma(as.numeric(input$xFixedL), 
                                                  shape = as.numeric(1),
                                                  scale = as.numeric(input$betaG),
                                           )
              )),
              "f" =  withMathJax(sprintf("$$F(%.03f) = \\mathbb{P}(X \\leq  %.03f ) = %.04f$$", 
-                                        input$xFixedPC, 
-                                        input$xFixedPC,
-                                        pf(as.numeric(input$xFixedPC), 
+                                        input$xFixedL, 
+                                        input$xFixedL,
+                                        pf(as.numeric(input$xFixedL), 
                                            df1 = as.numeric(input$df1),
                                            df2 = as.numeric(input$df2)
                                         )
              )),
              "gam" =  withMathJax(sprintf("$$F(%.03f) = \\mathbb{P}(X \\leq  %.03f ) = %.04f$$", 
-                                          input$xFixedPC, 
-                                          input$xFixedPC,
-                                          pgamma(as.numeric(input$xFixedPC), 
+                                          input$xFixedL, 
+                                          input$xFixedL,
+                                          pgamma(as.numeric(input$xFixedL), 
                                                  shape = as.numeric(input$alpha),
                                                  scale = as.numeric(input$betaG),
                                           )
              )),             
              "norm" =  withMathJax(sprintf("$$F(%.03f) = \\mathbb{P}(X \\leq  %.03f ) = %.04f$$", 
-                                           input$xFixedPC, 
-                                           input$xFixedPC,
-                                           pnorm(as.numeric(input$xFixedPC), 
+                                           input$xFixedL, 
+                                           input$xFixedL,
+                                           pnorm(as.numeric(input$xFixedL), 
                                                  mean = as.numeric(input$normMean),
                                                  sd = sqrt(as.numeric(input$normVar)),
                                            )
              )),
              "t" =  withMathJax(sprintf("$$F(%.03f) = \\mathbb{P}(X \\leq  %.03f ) = %.04f$$", 
-                                        input$xFixedPC, 
-                                        input$xFixedPC,
-                                        pt(as.numeric(input$xFixedPC), 
+                                        input$xFixedL, 
+                                        input$xFixedL,
+                                        pt(as.numeric(input$xFixedL), 
                                            df = as.numeric(input$df),
                                         )
              )),
              "unif" = withMathJax(sprintf("$$F(%.03f) = \\mathbb{P}(X \\leq  %.03f ) = %.04f$$", 
-                                          input$xFixedPC, 
-                                          input$xFixedPC,
-                                          punif(as.numeric(input$xFixedPC), 
+                                          input$xFixedL, 
+                                          input$xFixedL,
+                                          punif(as.numeric(input$xFixedL), 
                                                 min = as.numeric(input$theta1),
                                                 max = as.numeric(input$theta2),
                                           )
@@ -1058,7 +1060,7 @@ shinyServer(function(input, output, session) {
   #Select percentile option
   output$percentile <- renderUI({
     if(is.null(input$outType) || is.null(input$distrib)) return ()
-    if( (input$outType == "PDF")) #& (input$distrib == "norm") )
+    if( (input$outType == "PDF") ) #& (input$distrib == "norm") )
       radioButtons("percentile", "\nCalculate:", selected = "pdf", inline = TRUE,
                    c("Quantile" = "quant",
                      "PDF" = "pdf"))
@@ -1574,6 +1576,7 @@ shinyServer(function(input, output, session) {
   
   #Close
 })
+
 
 
 

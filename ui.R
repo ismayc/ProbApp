@@ -118,9 +118,9 @@ shinyUI(fluidPage(
       
       
       conditionalPanel(condition = "input.outType != 'Formulas' && input.distrib == 'gam'",
-                       numericInput("betaG", withMathJax('Enter the scale parameter of the distribution (\\(\\beta\\)):'), 5.0,
+                       numericInput("betaG", withMathJax('Enter the scale parameter of the distribution (\\(\\beta\\)):'), 6.0,
                                     min = 0),
-                       numericInput("alphaG", withMathJax('Enter the shape parameter of the distribution (\\(\\alpha\\)):'), 2.0,
+                       numericInput("alphaG", withMathJax('Enter the shape parameter of the distribution (\\(\\alpha\\)):'), 3.0,
                                     min = 0)
       ),      
       
@@ -167,12 +167,12 @@ shinyUI(fluidPage(
       #                   numericInput("xFixed", withMathJax('Enter a discrete value (\\(x\\)):'), 0.5)
       #  ),
       
-      conditionalPanel(condition = "input.outType != 'Formulas' && (input.outType == 'PDF' || input.outType == 'CDF') && input.percentile != 'quant'", 
+      conditionalPanel(condition = "input.outType != 'Formulas' && (input.outType == 'PDF') && input.percentile != 'quant'", 
                        #&& input.distrib != 'beta'",
                        numericInput("xFixedPC", withMathJax('Enter a discrete value (\\(x\\)):'), 1.0)
       ),
       
-      conditionalPanel(condition = "input.outType != 'Formulas' && (input.outType == 'PDF' || input.outType == 'CDF') && input.percentile == 'quant'",
+      conditionalPanel(condition = "input.outType != 'Formulas' && input.outType == 'PDF' && input.percentile == 'quant'",
                        numericInput("quantile", withMathJax('Enter a percentile (between 0 and 1):'), 0.5, 
                                     min = 0.0, max = 1.0, step = 0.1)
       ),
@@ -193,28 +193,30 @@ shinyUI(fluidPage(
       #                      numericInput("x2", withMathJax('Enter upper value (\\(x_2\\)):'), 6.0)
       #     ),     
       
-      conditionalPanel(condition = "input.outType != 'Formulas' && input.outType == 'Probability' 
-                       && input.probType == 'lowerTail'",
+      
+      ###HERE
+      conditionalPanel(condition = "input.outType != 'Formulas' && ((input.outType == 'Probability' && input.probType == 'lowerTail')
+                       || input.outType == 'CDF')",
                        # && input.distrib != 'beta'",
                        numericInput("xFixedL", withMathJax('Enter a discrete value (\\(x\\)):'), 0)
-      ), 
-      
-      conditionalPanel(condition = "input.outType != 'Formulas' && input.outType == 'Probability' 
-                       && input.probType == 'upperTail'",
-                       #   && input.distrib != 'beta'",
-                       numericInput("xFixedU", withMathJax('Enter a discrete value (\\(x\\)):'), 1.0)
-      ), 
-      
-      uiOutput("percentCalc"),
-      
-      #uiOutput("fixedVal1"),
-      #uiOutput("fixedVal2"),
-      
-      
-      uiOutput("distribCalc"),
-      uiOutput("probTypeSelect"),
-      uiOutput("probCalc")
-      
+    ), 
+    
+    conditionalPanel(condition = "input.outType != 'Formulas' && input.outType == 'Probability' 
+                     && input.probType == 'upperTail'",
+                     #   && input.distrib != 'beta'",
+                     numericInput("xFixedU", withMathJax('Enter a discrete value (\\(x\\)):'), 1.0)
+    ), 
+    
+    uiOutput("percentCalc"),
+    
+    #uiOutput("fixedVal1"),
+    #uiOutput("fixedVal2"),
+    
+    
+    uiOutput("distribCalc"),
+    uiOutput("probTypeSelect"),
+    uiOutput("probCalc")
+    
     )
   )
 )
