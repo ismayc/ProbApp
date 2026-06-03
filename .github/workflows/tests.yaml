@@ -1,0 +1,39 @@
+# Run the testthat suite on every push / PR.
+name: tests
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+      RENV_CONFIG_REPOS_OVERRIDE: https://packagemanager.posit.co/cran/latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          # Match the R version the renv.lock was built with (newer R fails to
+          # compile some pinned packages, e.g. S7 0.2.1 on R 4.6).
+          r-version: '4.5.3'
+          use-public-rspm: true
+
+      # System libraries needed by ggiraph/svglite (systemfonts, gdtools), curl, xml2.
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libcurl4-openssl-dev libssl-dev libxml2-dev \
+            libfontconfig1-dev libfreetype6-dev libpng-dev \
+            libtiff5-dev libjpeg-dev libharfbuzz-dev libfribidi-dev
+
+      - uses: r-lib/actions/setup-renv@v2
+
+      - name: Run test suite
+        run: Rscript tests/testthat.R
