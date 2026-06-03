@@ -16,3 +16,7 @@
 
 # headless ggplot artifact
 Rplots.pdf
+
+# rsconnect deployment records / legacy shinyapps metadata (deploy is by app name in CI)
+rsconnect/
+shinyapps/
