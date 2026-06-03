@@ -61,7 +61,7 @@ hyperGeomForm <- withMathJax(
   helpText('PDF is $$f(x) = \\mathbb{P}(X = x) = \\dfrac{{m \\choose {x}}{N-m \\choose {n-x}} }{ {N \\choose {n}}  }$$'),
   helpText('CDF is $$F(x) =  \\mathbb{P} (X \\le x) = \\sum_{i \\, \\le \\, x} \\mathbb{P}(X = i)$$'),
   helpText('Mean is $$\\mathbb{E}(X) = \\frac{nm}{N}$$'),
-  helpText('Variance is $$\\mathbb{V}(X) = \\frac{N-n}{N-1}\\left(\\frac{nm}{N}\\right)\\left( 1-\\frac{nm}{N} \\right)$$')
+  helpText('Variance is $$\\mathbb{V}(X) = \\frac{N-n}{N-1}\\left(\\frac{nm}{N}\\right)\\left( 1-\\frac{m}{N} \\right)$$')
 )
 
 #Negative Binomial
@@ -161,7 +161,7 @@ normForm <- withMathJax(
   helpText('Parameters are $$\\mu \\in (-\\infty, \\infty) 
            \\\\ \\sigma^2 \\in (0, \\infty) $$'),
   helpText('Support is $$ x \\in ( -\\infty, \\infty )$$'),
-  helpText('PDF is $$f(x) = \\frac{1}{\\sigma \\sqrt{2\\pi}}e^{-(x-\\mu)/2\\sigma^2}$$'),
+  helpText('PDF is $$f(x) = \\frac{1}{\\sigma \\sqrt{2\\pi}} \\, e^{-\\frac{(x-\\mu)^2}{2\\sigma^2}}$$'),
   helpText('CDF is $$F(x) = \\mathbb{P}\\{X \\le x\\} = \\int_{-\\infty}^{x}f(t) \\, dt$$'),
   helpText('Mean is $$\\mathbb{E}(X) = \\mu$$'),
   helpText('Variance is $$\\mathbb{V}(X) = \\sigma^2$$')
@@ -191,3 +191,90 @@ unifForm <- withMathJax(
   helpText('Mean is $$\\mathbb{E}(X) = \\frac{\\theta_1 +\\theta_2}{2}$$'),
   helpText('Variance is $$\\mathbb{V}(X) = \\frac{(\\theta_2-\\theta_1)^2}{12}$$')
 )
+
+#Weibull
+weibForm <- withMathJax(
+  h4(strong("Weibull Distribution")),
+  helpText('Parameters are $$k \\in (0, \\infty) 
+           \\\\ \\lambda \\in (0, \\infty) $$'),
+  helpText('Support is $$ x \\in [0, \\infty )$$'),
+  helpText('PDF is $$f(x) = \\frac{k}{\\lambda} \\left( \\frac{x}{\\lambda} \\right)^{k-1} e^{-(x/\\lambda)^k}$$'),
+  helpText('CDF is $$F(x) = \\mathbb{P}\\{X \\le x\\} = 1 - e^{-(x/\\lambda)^k}$$'),
+  helpText('Mean is $$\\mathbb{E}(X) = \\lambda \\, \\Gamma\\!\\left(1 + \\tfrac{1}{k}\\right)$$'),
+  helpText('Variance is $$\\mathbb{V}(X) = \\lambda^2 \\left[ \\Gamma\\!\\left(1 + \\tfrac{2}{k}\\right) - \\Gamma\\!\\left(1 + \\tfrac{1}{k}\\right)^2 \\right]$$')
+)
+
+#Log-Normal
+lnormForm <- withMathJax(
+  h4(strong("Log-Normal Distribution")),
+  helpText('Parameters are $$\\mu \\in (-\\infty, \\infty) 
+           \\\\ \\sigma \\in (0, \\infty) $$'),
+  helpText('Support is $$ x \\in (0, \\infty )$$'),
+  helpText('PDF is $$f(x) = \\frac{1}{x \\sigma \\sqrt{2\\pi}} \\, e^{-\\frac{(\\ln x - \\mu)^2}{2\\sigma^2}}$$'),
+  helpText('CDF is $$F(x) = \\mathbb{P}\\{X \\le x\\} = \\int_{0}^{x}f(t) \\, dt$$'),
+  helpText('Mean is $$\\mathbb{E}(X) = e^{\\mu + \\sigma^2/2}$$'),
+  helpText('Variance is $$\\mathbb{V}(X) = \\left( e^{\\sigma^2} - 1 \\right) e^{2\\mu + \\sigma^2}$$')
+)
+
+#Cauchy
+cauchyForm <- withMathJax(
+  h4(strong("Cauchy Distribution")),
+  helpText('Parameters are $$x_0 \\in (-\\infty, \\infty) 
+           \\\\ \\gamma \\in (0, \\infty) $$'),
+  helpText('Support is $$ x \\in (-\\infty, \\infty )$$'),
+  helpText('PDF is $$f(x) = \\frac{1}{\\pi \\gamma \\left[ 1 + \\left( \\frac{x - x_0}{\\gamma} \\right)^2 \\right]}$$'),
+  helpText('CDF is $$F(x) = \\mathbb{P}\\{X \\le x\\} = \\frac{1}{\\pi} \\arctan\\!\\left( \\frac{x - x_0}{\\gamma} \\right) + \\frac{1}{2}$$'),
+  helpText('Mean is undefined (does not exist).'),
+  helpText('Variance is undefined (does not exist).')
+)
+
+#Logistic
+logisForm <- withMathJax(
+  h4(strong("Logistic Distribution")),
+  helpText('Parameters are $$\\mu \\in (-\\infty, \\infty) 
+           \\\\ s \\in (0, \\infty) $$'),
+  helpText('Support is $$ x \\in (-\\infty, \\infty )$$'),
+  helpText('PDF is $$f(x) = \\frac{e^{-(x-\\mu)/s}}{s \\left( 1 + e^{-(x-\\mu)/s} \\right)^2}$$'),
+  helpText('CDF is $$F(x) = \\mathbb{P}\\{X \\le x\\} = \\frac{1}{1 + e^{-(x-\\mu)/s}}$$'),
+  helpText('Mean is $$\\mathbb{E}(X) = \\mu$$'),
+  helpText('Variance is $$\\mathbb{V}(X) = \\frac{s^2 \\pi^2}{3}$$')
+)
+
+#Pareto
+paretoForm <- withMathJax(
+  h4(strong("Pareto Distribution")),
+  helpText('Parameters are $$x_m \\in (0, \\infty) 
+           \\\\ \\alpha \\in (0, \\infty) $$'),
+  helpText('Support is $$ x \\in [x_m, \\infty )$$'),
+  helpText('PDF is $$f(x) = \\frac{\\alpha \\, x_m^{\\alpha}}{x^{\\alpha + 1}}$$'),
+  helpText('CDF is $$F(x) = \\mathbb{P}\\{X \\le x\\} = 1 - \\left( \\frac{x_m}{x} \\right)^{\\alpha}$$'),
+  helpText('Mean (for \\( \\alpha > 1 \\)) is $$\\mathbb{E}(X) = \\frac{\\alpha \\, x_m}{\\alpha - 1}$$'),
+  helpText('Variance (for \\( \\alpha > 2 \\)) is $$\\mathbb{V}(X) = \\frac{\\alpha \\, x_m^2}{(\\alpha - 1)^2 (\\alpha - 2)}$$')
+)
+
+#Laplace
+laplaceForm <- withMathJax(
+  h4(strong("Laplace Distribution")),
+  helpText('Parameters are $$\\mu \\in (-\\infty, \\infty) 
+           \\\\ b \\in (0, \\infty) $$'),
+  helpText('Support is $$ x \\in (-\\infty, \\infty )$$'),
+  helpText('PDF is $$f(x) = \\frac{1}{2b} \\, e^{-\\frac{|x - \\mu|}{b}}$$'),
+  helpText('CDF is $$F(x) = \\mathbb{P}\\{X \\le x\\} = \\begin{cases} \\frac{1}{2} e^{(x-\\mu)/b}, & x < \\mu \\\\ 1 - \\frac{1}{2} e^{-(x-\\mu)/b}, & x \\ge \\mu \\end{cases}$$'),
+  helpText('Mean is $$\\mathbb{E}(X) = \\mu$$'),
+  helpText('Variance is $$\\mathbb{V}(X) = 2b^2$$')
+)
+
+# Custom (user-defined) — built from the LaTeX string and support the user
+# entered. Unlike the fixed families above this is a function of the live
+# inputs, so the server calls customForm(latex, lo, hi) to render it.
+customForm <- function(latex, lo, hi) {
+  body <- if (is.null(latex) || !nzchar(trimws(latex))) "f(x)" else trimws(latex)
+  lo_s <- if (is.null(lo) || !is.finite(lo)) "\\ell" else format(lo)
+  hi_s <- if (is.null(hi) || !is.finite(hi)) "u" else format(hi)
+  withMathJax(
+    h4(strong("Custom Distribution")),
+    helpText('You define the (unnormalized) density and its support; the app rescales it to integrate to 1.'),
+    helpText(sprintf('Density (shown as entered) is $$f(x) \\propto %s, \\quad x \\in [%s, %s]$$', body, lo_s, hi_s)),
+    helpText('The normalizing constant, CDF, mean, variance and quantiles are all computed numerically.')
+  )
+}

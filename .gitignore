@@ -1,2 +1,18 @@
-packrat/lib*/
+# RStudio
 .Rproj.user
+
+# R session / workspace artifacts
+.Rhistory
+.RData
+.Ruserdata
+
+# OS
+.DS_Store
+
+# Claude Code local settings / scheduler state
+.claude/
+
+# renv manages its own ignores in renv/.gitignore (library/, etc.)
+
+# headless ggplot artifact
+Rplots.pdf
