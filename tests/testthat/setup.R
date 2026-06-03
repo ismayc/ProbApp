@@ -29,7 +29,7 @@ base_params <- list(
   weibShape = 2, weibScale = 3, lnMeanlog = 0, lnSdlog = 1,
   cauchyLoc = 0, cauchyScale = 1, logisLoc = 0, logisScale = 2,
   paretoScale = 1, paretoShape = 3, laplaceLoc = 0, laplaceScale = 1,
-  customExpr = "exp(-x)", customLatex = "e^{-x}", customLo = 0, customHi = 5
+  customExpr = "exp(-x)", customLo = 0, customHi = 5, customMasses = "", customMode = "expr"
 )
 
 # Per-distribution x / value inputs chosen to sit inside each support.
@@ -55,7 +55,7 @@ dist_configs <- list(
   logis  = list(type = "Continuous", x = list(xFixedPC = 1,   xFixedL = 1,   xFixedU = 2, x1 = -2,  x2 = 2,  quantile = 0.5)),
   pareto = list(type = "Continuous", x = list(xFixedPC = 2,   xFixedL = 2,   xFixedU = 3, x1 = 1.5, x2 = 4,  quantile = 0.5)),
   laplace= list(type = "Continuous", x = list(xFixedPC = 0.5, xFixedL = 0.5, xFixedU = 1, x1 = -1,  x2 = 1,  quantile = 0.5)),
-  custom = list(type = "Continuous", x = list(xFixedPC = 1,   xFixedL = 1,   xFixedU = 1, x1 = 0.5, x2 = 2,  quantile = 0.5))
+  custom = list(type = "CUSTOM",     x = list(xFixedPC = 1,   xFixedL = 1,   xFixedU = 1, x1 = 0.5, x2 = 2,  quantile = 0.5))
 )
 
 # Build the full input list for a given distribution.

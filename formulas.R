@@ -267,14 +267,32 @@ laplaceForm <- withMathJax(
 # Custom (user-defined) — built from the LaTeX string and support the user
 # entered. Unlike the fixed families above this is a function of the live
 # inputs, so the server calls customForm(latex, lo, hi) to render it.
-customForm <- function(latex, lo, hi) {
-  body <- if (is.null(latex) || !nzchar(trimws(latex))) "f(x)" else trimws(latex)
-  lo_s <- if (is.null(lo) || !is.finite(lo)) "\\ell" else format(lo)
-  hi_s <- if (is.null(hi) || !is.finite(hi)) "u" else format(hi)
-  withMathJax(
-    h4(strong("Custom Distribution")),
-    helpText('You define the (unnormalized) density and its support; the app rescales it to integrate to 1.'),
-    helpText(sprintf('Density (shown as entered) is $$f(x) \\propto %s, \\quad x \\in [%s, %s]$$', body, lo_s, hi_s)),
-    helpText('The normalizing constant, CDF, mean, variance and quantiles are all computed numerically.')
-  )
+customForm <- function(expr_string, latex, lo, hi, masses_str = NULL) {
+  # Auto-generate the normalized distribution LaTeX (point masses and/or the
+  # continuous density, with the numeric normalizing constant and a
+  # \begin{cases} breakdown for piecewise densities).
+  gen <- tryCatch(custom_density_latex(expr_string, lo, hi, parse_masses(masses_str)),
+                  error = function(e) NULL)
+  if (!is.null(gen)) {
+    withMathJax(
+      h4(strong("Custom Distribution")),
+      helpText('The density you defined, rescaled to integrate to 1 over its support and shown with its normalizing constant:'),
+      helpText(sprintf("$$%s$$", gen)),
+      helpText('and \\(f(x) = 0\\) outside the support. The CDF, mean, variance and quantiles are computed numerically.')
+    )
+  } else if (!is.null(latex) && nzchar(trimws(latex))) {
+    lo_s <- if (is.null(lo) || !is.finite(lo)) "\\ell" else .lx_num(lo)
+    hi_s <- if (is.null(hi) || !is.finite(hi)) "u" else .lx_num(hi)
+    withMathJax(
+      h4(strong("Custom Distribution")),
+      helpText(sprintf('Showing your LaTeX override (the expression could not be auto-formatted): $$f(x) \\propto %s, \\quad %s \\le x \\le %s$$',
+                       trimws(latex), lo_s, hi_s)),
+      helpText('The normalizing constant, CDF, mean, variance and quantiles are computed numerically.')
+    )
+  } else {
+    withMathJax(
+      h4(strong("Custom Distribution")),
+      helpText('Enter a valid density and support (in the Custom distribution box) to see its formatted representation.')
+    )
+  }
 }

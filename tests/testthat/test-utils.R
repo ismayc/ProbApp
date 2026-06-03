@@ -86,15 +86,175 @@ test_that("custom_check_node rejects disallowed calls and bare names", {
   expect_silent(custom_check_node(TRUE))                # logical literal node
 })
 
-test_that("customForm renders the user's LaTeX and support, with sensible fallbacks", {
-  f1 <- customForm("e^{-x}", 0, 5)
+# ---- Custom: LaTeX -> R expression converter -------------------------------
+test_that("latex_to_expr converts a common subset of LaTeX to R", {
+  expect_equal(latex_to_expr("e^{-x}"), "exp(-x)")
+  expect_equal(latex_to_expr("x^{2}"), "x^(2)")
+  expect_equal(latex_to_expr("\\sqrt{x}"), "sqrt(x)")
+  expect_equal(latex_to_expr("\\frac{1}{1+x^2}"), "((1)/(1+x^2))")
+  expect_equal(latex_to_expr("\\left( x - 1 \\right)^{2}"), "(x-1)^(2)")
+  expect_equal(latex_to_expr("2x"), "2*x")                       # implicit multiplication
+  expect_equal(latex_to_expr("|x|"), "abs(x)")
+  expect_equal(latex_to_expr("\\pi x"), "pi*x")
+  expect_equal(latex_to_expr("a \\cdot b"), "a*b")
+  expect_equal(latex_to_expr("\\ln(x)"), "log(x)")
+  expect_equal(latex_to_expr("f(x) = e^{-x}"), "exp(-x)")        # strips a leading "f(x) ="
+  # nested braces resolve innermost-first (multiple fixpoint iterations)
+  expect_equal(latex_to_expr("\\frac{1}{\\sqrt{2\\pi}}"), "((1)/(sqrt(2*pi)))")
+  expect_equal(latex_to_expr(NULL), "")
+  expect_equal(latex_to_expr(""), "")
+  # the converted expression feeds the existing pipeline
+  expect_silent(make_custom_spec(latex_to_expr("e^{-x^2/2}"), -5, 5))
+})
+
+# ---- Custom: point masses + mixed distributions ----------------------------
+test_that("parse_masses parses 'loc:wt' lists and rejects malformed entries", {
+  expect_null(parse_masses(""))
+  expect_null(parse_masses("   "))
+  expect_null(parse_masses(NULL))
+  m <- parse_masses("2:0.3, 5:0.7")
+  expect_equal(m$loc, c(2, 5)); expect_equal(m$wt, c(0.3, 0.7))
+  expect_equal(parse_masses("1:1 , , 3:2")$loc, c(1, 3))   # skips empty entries
+  expect_null(parse_masses(", ,"))                          # all-empty entries -> NULL
+  expect_error(parse_masses("2"), "location:weight")
+  expect_error(parse_masses("x:1"), "must be numbers")
+  expect_error(parse_masses("2:0"), "greater than 0")
+  expect_error(parse_masses("2:-1"), "greater than 0")
+  expect_error(parse_masses("2:1, 2:3"), "distinct")
+})
+
+test_that("make_custom_spec mixes point masses with a continuous density", {
+  # Pure discrete: density 0, masses 1,2,3 with weights 1,1,2 -> probs .25,.25,.5
+  d <- make_custom_spec("0", 0, 3, parse_masses("1:1, 2:1, 3:2"))
+  expect_equal(d$mean, 2.25, tolerance = 1e-6)
+  expect_equal(d$var, 0.6875, tolerance = 1e-6)
+  expect_equal(d$p(2), 0.5, tolerance = 1e-9)        # CDF jump included
+  expect_equal(d$p(2.5), 0.5, tolerance = 1e-9)
+  expect_equal(d$q(0.5), 2)                          # smallest x with F >= 0.5
+  expect_equal(d$q(0.6), 3)
+  expect_equal(d$pmass(2), 0.25); expect_equal(d$pmass(3), 0.5); expect_equal(d$pmass(1.5), 0)
+  expect_equal(d$contMass, 0)
+  expect_equal(nrow(d$atoms), 3L)
+  expect_equal(d$q(1.5), 3)                          # p beyond the CDF max -> largest support point
+
+  # A non-integrable continuous part is treated as zero mass when masses carry it.
+  big <- make_custom_spec("1/x^2", 0, 1, parse_masses("5:1"))
+  expect_equal(big$contMass, 0)                      # divergent continuous integral -> 0
+  expect_equal(big$pmass(5), 1, tolerance = 1e-9)
+
+  # Mixed: mass at 0 (weight 1) + Uniform(0,1) density "1" -> P(X=0)=1/2
+  m <- make_custom_spec("1", 0, 1, parse_masses("0:1"))
+  expect_equal(m$pmass(0), 0.5, tolerance = 1e-9)
+  expect_equal(m$d(0.5), 0.5, tolerance = 1e-6)      # continuous density scaled by total
+  expect_equal(m$p(0), 0.5, tolerance = 1e-3)
+  expect_equal(m$p(0.5), 0.75, tolerance = 1e-3)
+  expect_equal(m$mean, 0.25, tolerance = 1e-3)
+  expect_equal(m$var, 0.104167, tolerance = 1e-3)
+  expect_equal(m$contMass, 0.5, tolerance = 1e-6)
+  expect_equal(m$q(0.5), 0, tolerance = 1e-6)        # quantile lands on the atom
+})
+
+# ---- Custom: expression -> LaTeX converter ---------------------------------
+test_that("expr_to_latex renders the whitelisted sublanguage", {
+  expect_equal(expr_to_latex("x"), "x")
+  expect_equal(expr_to_latex("pi"), "\\pi")
+  expect_equal(expr_to_latex("2"), "2")
+  expect_equal(expr_to_latex("x^2"), "x^{2}")
+  expect_equal(expr_to_latex("(x - 1)^2"), "\\left(x - 1\\right)^{2}")   # base needs parens
+  expect_equal(expr_to_latex("1/x"), "\\frac{1}{x}")
+  expect_equal(expr_to_latex("2*x"), "2 x")                              # number*var -> juxtapose
+  expect_equal(expr_to_latex("x*x"), "x \\cdot x")
+  expect_equal(expr_to_latex("-x"), "-x")
+  expect_equal(expr_to_latex("!x"), "\\lnot x")
+  expect_equal(expr_to_latex("(x + 1)*2"), "\\left(x + 1\\right) \\cdot 2")  # grouping transparent
+  expect_equal(expr_to_latex("sqrt(x)"), "\\sqrt{x}")
+  expect_equal(expr_to_latex("exp(-x)"), "e^{-x}")
+  expect_equal(expr_to_latex("abs(sin(x))"), "\\left|\\sin\\!\\left(x\\right)\\right|")
+  expect_equal(expr_to_latex("log(1 + x)"), "\\ln\\!\\left(1 + x\\right)")
+  expect_match(expr_to_latex("x > 0 & x < 1"), "\\text{and}", fixed = TRUE)
+  expect_match(expr_to_latex("x <= 1 | x >= 2"), "\\text{or}", fixed = TRUE)
+  expect_match(expr_to_latex("x >= 1"), "\\ge", fixed = TRUE)
+  expect_equal(expr_to_latex("choose(5, x)"), "\\binom{5}{x}")
+  expect_match(expr_to_latex("beta(x, 2)"), "B\\!\\left(x, 2\\right)", fixed = TRUE)
+  expect_match(expr_to_latex("lbeta(x, 2)"), "\\ln B", fixed = TRUE)
+  expect_match(expr_to_latex("dnorm(x, 0, 1)"), "\\operatorname{dnorm}", fixed = TRUE)
+  expect_match(expr_to_latex("pmax(0, x)"), "\\operatorname{max}", fixed = TRUE)   # pmax -> max
+  expect_match(expr_to_latex("ifelse(x < 1, x, 2)"), "\\begin{cases}", fixed = TRUE)  # nested
+  expect_equal(expr_to_latex(quote(TRUE)), "1")                          # logical literal
+  expect_equal(expr_to_latex(quote(1i)), "?")                            # unsupported node type
+  # operands whose own precedence is queried (*, ^, !, and function/`/` nodes)
+  expect_match(expr_to_latex("x*x*2"), "\\cdot", fixed = TRUE)           # chained * -> prec(*)
+  expect_equal(expr_to_latex("x^2 + 1"), "x^{2} + 1")                    # ^ as operand -> prec(^)
+  expect_match(expr_to_latex("(x > 1) & !(x < 0)"), "\\lnot", fixed = TRUE)  # ! as operand -> prec(!)
+  expect_equal(expr_to_latex("sqrt(x) + 1"), "\\sqrt{x} + 1")            # function node -> default prec
+})
+
+# ---- Custom: full density LaTeX (constant + piecewise breakdown) ------------
+test_that("custom_density_latex shows the normalizing constant and support", {
+  s <- custom_density_latex("exp(-x)", 0, 5)
+  expect_match(s, "f(x) = ", fixed = TRUE)
+  expect_match(s, "e^{-x}", fixed = TRUE)
+  expect_match(s, "\\le x \\le", fixed = TRUE)
+  expect_match(s, "\\,", fixed = TRUE)                                   # a normalizing constant is shown
+  # An already-normalized density omits the redundant "1 *" factor.
+  tri <- custom_density_latex("ifelse(x < 1, x, 2 - x)", 0, 2)
+  expect_match(tri, "\\begin{cases}", fixed = TRUE)
+  expect_false(grepl("1\\,x", tri))                                      # no leading "1 *"
+  expect_match(tri, "\\text{otherwise}", fixed = TRUE)
+})
+
+test_that("custom_density_latex breaks piecewise densities into cases and folds constants", {
+  s <- custom_density_latex("ifelse(x < 1, 2, 1)", 0, 3)                 # C = 1/4
+  expect_match(s, "\\begin{cases}", fixed = TRUE)
+  expect_match(s, "0.5, &", fixed = TRUE)                                # 0.25 * 2 folded -> 0.5
+  expect_match(s, "0.25, &", fixed = TRUE)                               # 0.25 * 1 folded -> 0.25
+  s2 <- custom_density_latex("ifelse(x < 1, x, ifelse(x < 2, 1, 3 - x))", 0, 3)  # nested else
+  expect_equal(lengths(regmatches(s2, gregexpr("&", s2))), 3L)           # three case rows
+})
+
+test_that("custom_density_latex renders point masses and mixed distributions", {
+  # pure discrete: only P(X = x_i) = p_i rows, no continuous density
+  d <- custom_density_latex("0", 0, 3, parse_masses("1:1, 2:1, 3:2"))
+  expect_match(d, "\\mathbb{P}(X = 1) = 0.25", fixed = TRUE)
+  expect_match(d, "\\mathbb{P}(X = 3) = 0.5", fixed = TRUE)
+  expect_false(grepl("f(x)", d, fixed = TRUE))            # no continuous component
+  # mixed: a mass plus the continuous density
+  m <- custom_density_latex("exp(-x)", 0, 5, parse_masses("2:1"))
+  expect_match(m, "\\mathbb{P}(X = 2)", fixed = TRUE)
+  expect_match(m, "f(x) = ", fixed = TRUE)
+  expect_match(m, "e^{-x}", fixed = TRUE)
+  # mixed with a piecewise continuous part
+  mp <- custom_density_latex("ifelse(x < 1, x, 2 - x)", 0, 2, parse_masses("0:1"))
+  expect_match(mp, "\\mathbb{P}(X = 0)", fixed = TRUE)
+  expect_match(mp, "\\begin{cases}", fixed = TRUE)
+})
+
+test_that("custom_density_latex rejects an invalid support", {
+  expect_error(custom_density_latex("x", 5, 5), "invalid support")
+  expect_error(custom_density_latex("x", NA_real_, 1), "invalid support")
+  expect_error(custom_density_latex("1/x^2", 0, 1), "positive, finite")  # non-integrable
+})
+
+# ---- Custom: the Formulas-page wrapper -------------------------------------
+test_that("customForm auto-formats, falls back to a LaTeX override, then to a prompt", {
+  # auto-generated path
+  f1 <- customForm("exp(-x)", "", 0, 5)
   expect_match(as.character(f1), "Custom Distribution", fixed = TRUE)
   expect_match(as.character(f1), "e^{-x}", fixed = TRUE)
-  expect_match(as.character(f1), "[0, 5]", fixed = TRUE)
-  f2 <- customForm(NULL, NULL, NULL)                    # all-missing fallbacks
-  expect_match(as.character(f2), "f(x)", fixed = TRUE)
-  expect_match(as.character(f2), "\\ell", fixed = TRUE)
-  expect_match(as.character(customForm("  ", NA_real_, NA_real_)), "f(x)", fixed = TRUE)
+  expect_match(as.character(f1), "normalizing constant", fixed = TRUE)
+  # override path: invalid expression but a user LaTeX string is provided
+  f2 <- customForm("1/x^2", "g(x)", 0, 1)
+  expect_match(as.character(f2), "override", fixed = TRUE)
+  expect_match(as.character(f2), "g(x)", fixed = TRUE)
+  # override with missing bounds -> symbolic \ell / u
+  f3 <- customForm("system('x')", "h(x)", NULL, NULL)
+  expect_match(as.character(f3), "\\ell", fixed = TRUE)
+  # nothing usable -> a prompt
+  f4 <- customForm("system('x')", "", 0, 5)
+  expect_match(as.character(f4), "Enter a valid density", fixed = TRUE)
+  # point masses flow through to the rendered LaTeX
+  f5 <- customForm("0", "", 0, 3, "2:0.3, 5:0.7")
+  expect_match(as.character(f5), "\\mathbb{P}(X = 2)", fixed = TRUE)
 })
 
 test_that("custom_cumtrapz integrates and handles degenerate input", {

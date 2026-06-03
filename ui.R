@@ -45,7 +45,7 @@ function(request) page_sidebar(
 
     radioButtons("distType",
                  strong("Distribution Type:"),
-                 list("Discrete", "Continuous"),
+                 list("Discrete", "Continuous", "CUSTOM"),
                  selected = "Discrete"),
 
     uiOutput("distName"),
@@ -63,7 +63,9 @@ function(request) page_sidebar(
     uiOutput("probTypeSelect"),
 
     # --- Parameters -------------------------------------------------------
-    conditionalPanel(condition = "input.outType != 'Formulas'",
+    # Hidden for CUSTOM under Mean/Variance: the custom distribution's inputs
+    # live in the card above the plot, so the sidebar has nothing to head there.
+    conditionalPanel(condition = "input.outType != 'Formulas' && !(input.distType == 'CUSTOM' && (input.outType == 'Mean' || input.outType == 'Variance'))",
                      strong("Parameters:")),
 
     conditionalPanel(condition = "input.outType != 'Formulas' & (input.distrib == 'bern' || input.distrib == 'geom')",
@@ -176,21 +178,9 @@ function(request) page_sidebar(
                      numericInput("laplaceScale", withMathJax('Enter the scale parameter (\\(b\\)):'), 1.0, min = 0)
     ),
 
-    conditionalPanel(condition = "input.distrib == 'custom'",
-                     textInput("customExpr", withMathJax('Enter a density \\(f(x)\\) in \\(x\\):'),
-                               value = "exp(-x)"),
-                     numericInput("customLo", withMathJax('Lower bound of the support (\\(\\ell\\)):'), 0.0),
-                     numericInput("customHi", withMathJax('Upper bound of the support (\\(u\\)):'), 5.0),
-                     textInput("customLatex", 'LaTeX to display (optional):', value = "e^{-x}"),
-                     helpText(HTML(paste0(
-                       "<small>Use <code>x</code>, <code>pi</code>, numbers, and elementary math ",
-                       "(<code>+ - * / ^</code>, <code>exp</code>, <code>log</code>, <code>sqrt</code>, ",
-                       "<code>sin</code>, <code>gamma</code>, <code>dnorm</code>, …). <strong>Piecewise</strong> ",
-                       "densities are supported via <code>ifelse()</code> and comparisons, e.g. ",
-                       "<code>ifelse(x &lt; 1, x, 2 - x)</code> (triangular) or ",
-                       "<code>(x &gt;= 0) * (x &lt; 1) * 2</code>. The expression need not ",
-                       "be normalized — it is rescaled to integrate to 1 over the support.</small>")))
-    ),
+    # (The Custom distribution's density/support/LaTeX inputs live in a roomier
+    # card above the plot — see the main area below — rather than this narrow
+    # sidebar.)
 
     # --- Input values (x) -------------------------------------------------
     conditionalPanel(condition = "input.outType != 'Formulas' && (input.outType == 'PDF') && input.percentile != 'quant'",
@@ -226,11 +216,51 @@ function(request) page_sidebar(
       "Developed by Dr. Chester Ismay (",
       a("chester.ismay@gmail.com", href = "mailto:chester.ismay@gmail.com"),
       ") and Logan Soich (",
-      a("soichlo@ripon.edu", href = "mailto:soichlo@ripon.edu"), ")"
+      a("soichlogan@gmail.com", href = "mailto:soichlogan@gmail.com"), ")"
   ),
 
   # Validation alert (e.g. a non-integer entered for a count parameter)
   uiOutput("inputError"),
+
+  # Custom-distribution definition — shown above the results whenever the Custom
+  # distribution is selected. Its inputs (expression, support, LaTeX) get more
+  # room here than in the narrow sidebar. Same input ids; only the location moved.
+  conditionalPanel(
+    condition = "input.distrib == 'custom'",
+    card(
+      # In the fillable main area this card does not auto-grow to its content,
+      # so we give it an explicit height tall enough to show every control plus
+      # the help link (fill = FALSE keeps it from stretching further).
+      fill = FALSE,
+      min_height = "400px",
+      height = "400px",
+      card_header("Custom distribution"),
+      card_body(
+        fillable = FALSE,
+        radioButtons("customMode", "Enter the density as:",
+                     c("R expression" = "expr", "LaTeX" = "latex"),
+                     selected = "expr", inline = TRUE),
+        div(
+          class = "d-flex flex-wrap align-items-end gap-3",
+          # The density field's label changes with the input mode (see the
+          # observer in server.R), so it reads "in x" for R and "as LaTeX".
+          div(style = "flex: 4 1 320px;",
+              textInput("customExpr", "Density f(x) in x:", value = "exp(-x)", width = "100%")),
+          div(style = "flex: 1 1 130px;",
+              numericInput("customLo", withMathJax('Lower \\(\\ell\\):'), 0.0, width = "100%")),
+          div(style = "flex: 1 1 130px;",
+              numericInput("customHi", withMathJax('Upper \\(u\\):'), 5.0, width = "100%"))
+        ),
+        textInput("customMasses",
+                  HTML('Point masses &mdash; <code>location:weight</code>, comma-separated (optional):'),
+                  value = "", width = "100%",
+                  placeholder = "e.g.  2:0.3, 5:0.2"),
+        # Full syntax / point-mass guidance lives in a modal (keeps the card
+        # compact); the link opens it and the help expands across the window.
+        actionLink("customHelp", "Syntax & point-mass help", class = "small")
+      )
+    )
+  ),
 
   # Formula card (shown for the Formulas output type)
   conditionalPanel(

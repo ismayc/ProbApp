@@ -61,7 +61,7 @@ cases <- list(
 for (cs in cases) {
   R <- ref_spec(cs$f, cs$lo, cs$hi); x <- cs$x
   testServer(appServer, {
-    do.call(session$setInputs, list(distType="Continuous", distrib="custom",
+    do.call(session$setInputs, list(distType="CUSTOM", distrib="custom",
       customExpr=cs$expr, customLatex="f", customLo=cs$lo, customHi=cs$hi,
       percentile="pdf", probType="lowerTail",
       xFixedPC=x, xFixedL=x, xFixedU=x, x1=cs$lo+(cs$hi-cs$lo)*0.25, x2=cs$lo+(cs$hi-cs$lo)*0.5, quantile=0.5))
@@ -83,7 +83,7 @@ for (cs in cases) {
 
 # ---- closed-form spot checks (independent of any integration) --------------
 testServer(appServer, {   # Uniform(0,5): exact values
-  do.call(session$setInputs, list(distType="Continuous", distrib="custom", customExpr="1",
+  do.call(session$setInputs, list(distType="CUSTOM", distrib="custom", customExpr="1",
     customLatex="1", customLo=0, customHi=5, percentile="pdf", probType="lowerTail",
     xFixedPC=2, xFixedL=2, xFixedU=2, x1=1, x2=3, quantile=0.5))
   session$setInputs(outType="PDF", percentile="pdf"); chk("exact:U(0,5) pdf", nums(S(output$distribCalc)), 0.2, tol=1e-4)
@@ -99,7 +99,7 @@ bad <- list(
 )
 for (b in bad) {
   testServer(appServer, {
-    do.call(session$setInputs, list(distType="Continuous", distrib="custom", customExpr=b,
+    do.call(session$setInputs, list(distType="CUSTOM", distrib="custom", customExpr=b,
       customLatex="f", customLo=0, customHi=5, percentile="pdf", probType="lowerTail",
       xFixedPC=1, xFixedL=1, xFixedU=1, x1=0, x2=2, quantile=0.5))
     chkT(paste0("refuse: ", b), length(inputErrors()) >= 1)
@@ -109,7 +109,7 @@ for (b in bad) {
 }
 # lo >= hi is rejected
 testServer(appServer, {
-  do.call(session$setInputs, list(distType="Continuous", distrib="custom", customExpr="exp(-x)",
+  do.call(session$setInputs, list(distType="CUSTOM", distrib="custom", customExpr="exp(-x)",
     customLatex="f", customLo=5, customHi=5, percentile="pdf", probType="lowerTail",
     xFixedPC=1, xFixedL=1, xFixedU=1, x1=0, x2=2, quantile=0.5))
   chkT("refuse: lo>=hi", any(grepl("lower bound", inputErrors())))
@@ -122,5 +122,35 @@ chkT("custom CDF monotone non-decreasing", all(diff(cc) >= -1e-9))
 chkT("custom CDF in [0,1]", min(cc) >= -1e-9 && max(cc) <= 1+1e-9)
 chkT("custom p(q) inverse", max(abs(s$p(s$q(c(.1,.3,.5,.7,.9))) - c(.1,.3,.5,.7,.9))) < 5e-3)
 chkT("custom density integrates to 1", abs(integrate(s$d, 0, 6)$value - 1) < 1e-3)
+
+# ---- mixed distributions (point masses + continuous), analytic references --
+# Pure discrete: masses 1,2,3 with weights 1,1,2 -> probs .25,.25,.5
+testServer(appServer, {
+  do.call(session$setInputs, list(distType="CUSTOM", distrib="custom", customExpr="0",
+    customLatex="", customMode="expr", customMasses="1:1, 2:1, 3:2", customLo=0, customHi=3,
+    percentile="pdf", probType="lowerTail", xFixedPC=2, xFixedL=2, xFixedU=2, x1=1, x2=3, quantile=0.5))
+  session$setInputs(outType="Mean");     chk("mix-discrete:mean", nums(S(output$meanCalc)), 2.25)
+  session$setInputs(outType="Variance"); chk("mix-discrete:var",  nums(S(output$varCalc)), 0.6875)
+  session$setInputs(outType="CDF", xFixedL=2); chk("mix-discrete:cdf(2)", nums(S(output$distribCalc)), 0.5)
+})
+# Mixed: mass at 0 (weight 1) + Uniform(0,1) density "1" -> P(X=0)=1/2, mean 1/4
+testServer(appServer, {
+  do.call(session$setInputs, list(distType="CUSTOM", distrib="custom", customExpr="1",
+    customLatex="", customMode="expr", customMasses="0:1", customLo=0, customHi=1,
+    percentile="pdf", probType="lowerTail", xFixedPC=0, xFixedL=0, xFixedU=0, x1=0, x2=1, quantile=0.5))
+  session$setInputs(outType="Mean");     chk("mix:mean", nums(S(output$meanCalc)), 0.25)
+  session$setInputs(outType="CDF", xFixedL=0.5); chk("mix:cdf(0.5)", nums(S(output$distribCalc)), 0.75)
+})
+chkT("mixed self-consistency: total prob 1",
+     { m <- make_custom_spec("1", 0, 1, parse_masses("0:1")); abs(m$p(1) - 1) < 1e-6 })
+
+# ---- LaTeX input mode: conversion matches the equivalent R expression ------
+ltx <- list(c("e^{-x}", "exp(-x)"), c("\\frac{1}{1+x^2}", "1/(1+x^2)"),
+            c("x^{2}", "x^2"), c("\\sqrt{x}", "sqrt(x)"), c("e^{-x^2/2}", "exp(-x^2/2)"))
+for (pr in ltx) {
+  a <- make_custom_spec(latex_to_expr(pr[1]), 0.01, 4)$mean
+  b <- make_custom_spec(pr[2], 0.01, 4)$mean
+  chk(paste0("latex:", pr[1]), a, b, tol = 1e-6)
+}
 
 cat(sprintf("\n==== CUSTOM-DIST AUDIT: %d passed, %d FAILED ====\n", P, Fl))

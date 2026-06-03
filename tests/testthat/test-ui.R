@@ -13,7 +13,7 @@ test_that("ui html exposes all control input ids", {
                "weibShape", "weibScale", "lnMeanlog", "lnSdlog",
                "cauchyLoc", "cauchyScale", "logisLoc", "logisScale",
                "paretoScale", "paretoShape", "laplaceLoc", "laplaceScale",
-               "customExpr", "customLo", "customHi", "customLatex",
+               "customExpr", "customLo", "customHi",
                "xFixedPC", "quantile", "x1", "x2", "xFixedL", "xFixedU")) {
     expect_match(html, id, fixed = TRUE, info = id)
   }

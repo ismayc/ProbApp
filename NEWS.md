@@ -8,6 +8,40 @@ decade-old application; each subsequent minor version is one milestone of the
 
 ---
 
+## 0.9.0 — Custom as its own type: mixed distributions + LaTeX input (2026-06-03)
+
+### Added
+- **Custom is now a top-level Distribution Type** (Discrete / Continuous /
+  CUSTOM), since a custom distribution can be discrete, continuous, or a mix.
+- **Mixed distributions**: a new "Point masses" field (`location:weight`,
+  comma-separated) adds atoms alongside the continuous density. The whole
+  distribution (curve + masses) is normalized to total probability 1, with a
+  CDF that jumps at the masses, correct mean/variance/quantiles, `P(X = x_i)`
+  shown at atoms, and the masses drawn as stems on the plot. A density of `0`
+  with only masses gives a purely discrete custom distribution.
+- **LaTeX input mode**: a toggle switches the density field between
+  "R expression" and "LaTeX"; a common subset (`\frac`, `^{}`, `e^{}`,
+  `\sqrt`, `\left/\right`, `\cdot`, `\pi`, `\ln`/trig, `|..|`, implicit
+  multiplication) is converted to the R expression and fed through the same
+  sandbox.
+- **Auto-generated density LaTeX in the Formulas tab**: the custom density is
+  shown as nicely formatted LaTeX with its numeric normalizing constant, a
+  `\begin{cases}` breakdown for piecewise densities, and `P(X = x_i) = p_i`
+  rows for point masses.
+
+### Changed
+- The custom-distribution inputs moved from the narrow sidebar into a roomy
+  "Custom distribution" card above the plot. The density field's label tracks
+  the input mode ("in x" vs "as LaTeX"), and full syntax / point-mass guidance
+  moved into a "Syntax & point-mass help" modal so the card stays compact.
+- The sidebar "Parameters:" heading is hidden for CUSTOM under Mean/Variance
+  (the custom inputs live in the card, so there is nothing to head there).
+
+### Verified
+- Live bookmark round-trip: a CUSTOM (LaTeX + point-mass) configuration restores
+  in full from a shared URL. Suite at 1,095 tests / 100% coverage; 630
+  independent verification checks across the five audits.
+
 ## 0.8.0 — Piecewise custom densities (2026-06-03)
 
 ### Added

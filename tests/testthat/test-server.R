@@ -203,6 +203,36 @@ test_that("Custom distribution surfaces a validation error for a unsafe/invalid 
   })
 })
 
+test_that("Custom LaTeX input mode converts the density and computes correctly", {
+  testServer(appServer, {
+    do.call(session$setInputs, inputs_for("custom"))
+    session$setInputs(customMode = "latex", customExpr = "e^{-x^2/2}", customLo = -5, customHi = 5)
+    expect_length(inputErrors(), 0L)
+    expect_equal(customRExpr(), "exp(-x^2/2)")
+    session$setInputs(outType = "Mean")
+    expect_match(strip(output$meanCalc), "0.0000", fixed = TRUE)        # symmetric -> mean 0
+    # Invalid LaTeX surfaces a clear error.
+    session$setInputs(customExpr = "\\foo{x}")
+    expect_match(inputErrors()[1], "could not parse")
+  })
+})
+
+test_that("Custom Formulas tab shows the auto-generated density LaTeX", {
+  testServer(appServer, {
+    do.call(session$setInputs, inputs_for("custom"))
+    session$setInputs(outType = "Formulas")
+    expect_match(strip(output$formulas), "e^{-x}", fixed = TRUE)         # auto-formatted exp(-x)
+    expect_match(strip(output$formulas), "normalizing constant", fixed = TRUE)
+    # A piecewise density renders as a cases block.
+    session$setInputs(customExpr = "ifelse(x < 1, x, 2 - x)", customLo = 0, customHi = 2)
+    expect_match(strip(output$formulas), "\\begin{cases}", fixed = TRUE)
+    expect_match(strip(output$formulas), "\\text{otherwise}", fixed = TRUE)
+    # Point masses (mixed distribution) show P(X = x_i) = p_i.
+    session$setInputs(customExpr = "exp(-x)", customLo = 0, customHi = 5, customMasses = "2:1")
+    expect_match(strip(output$formulas), "\\mathbb{P}(X = 2)", fixed = TRUE)
+  })
+})
+
 test_that("Custom distribution reports support / range / non-integrable errors to the user", {
   testServer(appServer, {
     do.call(session$setInputs, inputs_for("custom"))

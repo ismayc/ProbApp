@@ -10,7 +10,7 @@ bp <- list(pBG=.5,p=.5,numBinTrials=15,a=1,b=6,numEvents=10,numTrials=5,favBalls
   normMean=0,normVar=1,theta1=0,theta2=5,
   weibShape=2,weibScale=3,lnMeanlog=0,lnSdlog=1,cauchyLoc=0,cauchyScale=1,
   logisLoc=0,logisScale=2,paretoScale=1,paretoShape=3,laplaceLoc=0,laplaceScale=1,
-  customExpr="exp(-x)",customLatex="e^{-x}",customLo=0,customHi=5)
+  customExpr="exp(-x)",customLo=0,customHi=5,customMasses="",customMode="expr")
 cfg <- list(
   bern =list(t="Discrete",  x=list(xFixedPC=1, xFixedL=0, xFixedU=1, x1=0,  x2=1,  quantile=.5)),
   bin  =list(t="Discrete",  x=list(xFixedPC=3, xFixedL=3, xFixedU=10,x1=2,  x2=6,  quantile=.5)),
@@ -33,7 +33,7 @@ cfg <- list(
   logis =list(t="Continuous",x=list(xFixedPC=1,  xFixedL=1,  xFixedU=2, x1=-2, x2=2,  quantile=.5)),
   pareto=list(t="Continuous",x=list(xFixedPC=2,  xFixedL=2,  xFixedU=3, x1=1.5,x2=4,  quantile=.5)),
   laplace=list(t="Continuous",x=list(xFixedPC=.5,xFixedL=.5, xFixedU=1, x1=-1, x2=1,  quantile=.5)),
-  custom=list(t="Continuous",x=list(xFixedPC=1,  xFixedL=1,  xFixedU=1, x1=.5, x2=2,  quantile=.5)))
+  custom=list(t="CUSTOM",    x=list(xFixedPC=1,  xFixedL=1,  xFixedU=1, x1=.5, x2=2,  quantile=.5)))
 
 touch <- function(x) invisible(suppressWarnings(try(force(x), silent = TRUE)))
 
@@ -139,6 +139,7 @@ testServer(appServer, {   # continuous 'extreme' without x1/x2
 testServer(appServer, {
   session$setInputs(distType="Discrete", outType="Formulas"); touch(output$distName)
   session$setInputs(distType="Continuous"); touch(output$distName)
+  session$setInputs(distType="CUSTOM"); touch(output$distName)   # hidden distrib='custom'
   session$setInputs(distrib="norm", outType="PDF"); touch(output$percentileUI)
   session$setInputs(outType="Probability"); touch(output$probTypeSelect)
 })
@@ -159,12 +160,39 @@ for (nm in c("bern","bin","dunif","geom","hgeom","nbin","poi")) {
   })
 }
 testServer(appServer, { touch(output$distName) })
+# custom in LaTeX input mode: exercises customRExpr() conversion, the mode-label
+# observer (both branches via transitions), and the formula fallback
+testServer(appServer, {
+  do.call(session$setInputs, c(list(distType="CUSTOM", distrib="custom", outType="Formulas",
+                                    percentile="pdf", probType="lowerTail"),
+                               modifyList(bp, list(customLo=-4, customHi=4)), cfg$custom$x))
+  session$setInputs(customMode="latex", customExpr="e^{-x^2/2}")   # -> latex label branch
+  touch(output$formulas); touch(output$meanCalc)
+  session$setInputs(outType="PDF", percentile="pdf"); touch(output$distribCalc); touch(plotObj())
+  session$setInputs(outType="Formulas", customExpr="\\foo{x}")     # bad LaTeX -> formula fallback
+  touch(output$formulas); touch(output$inputError)
+  session$setInputs(customMode="expr")                            # -> expr label branch
+})
+# mixed custom (point masses): exercises the atom-stem plot overlay + atom PDF
+testServer(appServer, {
+  do.call(session$setInputs, c(list(distType="CUSTOM", distrib="custom", outType="PDF",
+                                    percentile="pdf", probType="lowerTail"),
+                               modifyList(bp, list(customMasses="2:1, 6:1")), cfg$custom$x))
+  touch(output$distribCalc); touch(output$distribPlot)        # PDF: P(X=x) atom + stems
+  session$setInputs(outType="Probability", probType="between", x1=1, x2=4)
+  touch(output$distribPlot)                                    # Probability: stems
+  session$setInputs(outType="CDF"); touch(output$distribPlot)  # CDF: jumps (no stems)
+  session$setInputs(outType="Mean"); touch(output$meanCalc)
+  session$setInputs(outType="Variance"); touch(output$varCalc)
+  session$setInputs(outType="Formulas"); touch(output$formulas)
+})
 
 # ---- reset + Help/About observers ------------------------------------------
 testServer(appServer, {
   do.call(session$setInputs, c(list(distType="Discrete", distrib="bin"), bp, cfg$bin$x))
   session$setInputs(reset = 1)   # fires the reset observer (updates every input)
   session$setInputs(about = 1)   # fires the Help/About modal observer
+  session$setInputs(customHelp = 1)   # fires the Custom syntax-help modal observer
   applyBookmarkUrl("?_inputs_&distrib=%22bin%22")   # the onBookmarked "Share link" handler
 })
 

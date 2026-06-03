@@ -42,6 +42,23 @@ appServer <- function(input, output, session) {
   # On "Share link", push the encoded state into the address bar (see helper).
   onBookmarked(applyBookmarkUrl)
 
+  # Effective R-expression for the custom density: the density field is read as
+  # LaTeX (and converted) when the input mode is "latex", otherwise verbatim.
+  customRExpr <- reactive({
+    if (identical(input$customMode, "latex")) latex_to_expr(input$customExpr) else input$customExpr
+  })
+  # Relabel the single density field to match the chosen input mode, so it is
+  # clear the LaTeX goes in that field (not in a separate box).
+  observeEvent(input$customMode, {
+    if (identical(input$customMode, "latex")) {
+      updateTextInput(session, "customExpr", label = "Density f(x), as LaTeX:",
+                      placeholder = "e.g.  \\frac{1}{\\sqrt{2\\pi}} e^{-x^2/2}")
+    } else {
+      updateTextInput(session, "customExpr", label = "Density f(x) in x:",
+                      placeholder = "e.g.  exp(-x)")
+    }
+  }, ignoreInit = TRUE)
+
   ##########################################
   # Input validation                       #
   ##########################################
@@ -91,7 +108,7 @@ appServer <- function(input, output, session) {
       logis = list(pos(input$logisScale, "Scale parameter (s)")),
       pareto = list(pos(input$paretoScale, "Scale parameter (x_m)"), pos(input$paretoShape, "Shape parameter (α)")),
       laplace = list(pos(input$laplaceScale, "Scale parameter (b)")),
-      custom = list(validate_custom(input$customExpr, input$customLo, input$customHi)),
+      custom = list(validate_custom(customRExpr(), input$customLo, input$customHi, input$customMasses)),
       list()
     )
     # Percentile (used in PDF/Quantile mode) must be a valid probability.
@@ -125,8 +142,45 @@ appServer <- function(input, output, session) {
                      paretoScale = 1, paretoShape = 3, laplaceLoc = 0, laplaceScale = 1,
                      customLo = 0, customHi = 5)
     for (id in names(defaults)) updateNumericInput(session, id, value = defaults[[id]])
+    updateRadioButtons(session, "customMode", selected = "expr")
     updateTextInput(session, "customExpr", value = "exp(-x)")
-    updateTextInput(session, "customLatex", value = "e^{-x}")
+    updateTextInput(session, "customMasses", value = "")
+  })
+
+  # Custom-distribution syntax help (opened from the "Syntax & point-mass help"
+  # link in the Custom card) — the full guidance expands in a modal.
+  observeEvent(input$customHelp, {
+    showModal(modalDialog(
+      title = "Custom distribution — syntax help",
+      easyClose = TRUE, size = "xl", footer = modalButton("Close"),
+      HTML(paste0(
+        "<p>Define a <strong>density</strong> over a support <code>[&#8467;, u]</code>, optional ",
+        "<strong>point masses</strong>, or both (a mixed distribution). The whole distribution ",
+        "(curve + masses) is rescaled to total probability 1 — your density need not be normalized.</p>",
+        "<h5>R expression mode</h5>",
+        "<p>Use <code>x</code>, <code>pi</code>, numbers, and elementary math: ",
+        "<code>+ - * / ^</code>, <code>exp</code>, <code>log</code>, <code>sqrt</code>, ",
+        "<code>sin</code>/<code>cos</code>/<code>tan</code>, <code>abs</code>, <code>gamma</code>, ",
+        "and density functions like <code>dnorm</code>, <code>dgamma</code>, <code>dbeta</code>.</p>",
+        "<p><strong>Piecewise</strong> densities use <code>ifelse()</code> and comparisons, e.g. ",
+        "<code>ifelse(x &lt; 1, x, 2 - x)</code> (triangular) or ",
+        "<code>(x &gt;= 0) * (x &lt; 1) * 2</code> (an indicator).</p>",
+        "<h5>LaTeX mode</h5>",
+        "<p>Enter standard LaTeX math in <code>x</code>, e.g. ",
+        "<code>\\frac{1}{\\sqrt{2\\pi}} e^{-x^2/2}</code>. Supported: <code>\\frac{a}{b}</code>, ",
+        "<code>x^{n}</code>, <code>e^{…}</code>, <code>\\sqrt{…}</code>, <code>\\left(\\right)</code>, ",
+        "<code>\\cdot</code>, <code>\\pi</code>, <code>\\ln</code>, <code>\\sin/\\cos/\\tan</code>, ",
+        "<code>|x|</code>, and implicit multiplication (<code>2x</code>, <code>\\pi x</code>). ",
+        "Only <code>x</code>, <code>\\pi</code> and numbers may appear as symbols.</p>",
+        "<h5>Point masses</h5>",
+        "<p>Enter <code>location:weight</code> pairs separated by commas, e.g. ",
+        "<code>2:0.3, 5:0.7</code>. Each adds an atom with probability proportional to its weight. ",
+        "A density of <code>0</code> with only masses gives a purely discrete distribution; a positive ",
+        "density plus masses gives a mixed distribution (the CDF jumps at each mass).</p>",
+        "<p class='text-muted'><small>For security, expressions are evaluated in a sandbox: only the ",
+        "whitelisted math above is allowed — no file, network, or system access.</small></p>"
+      ))
+    ))
   })
 
   # Help / About dialog.
@@ -199,7 +253,7 @@ appServer <- function(input, output, session) {
       # (see make_custom_spec / safe_pdf in functions.R). inputErrors() blocks
       # every output while the expression/support is invalid, so this is only
       # reached with a buildable spec.
-      custom = make_custom_spec(input$customExpr, n("customLo"), n("customHi"))
+      custom = make_custom_spec(customRExpr(), n("customLo"), n("customHi"), parse_masses(input$customMasses))
     )
   }
   # The continuous families that go through contSpec() (vs the bespoke originals).
@@ -243,11 +297,17 @@ appServer <- function(input, output, session) {
                         "Logistic"="logis",
                         "Log-Normal"="lnorm",
                         "Pareto"="pareto",
-                        "Weibull"="weib",
-                        "Custom (define your own)"="custom"),
+                        "Weibull"="weib"),
                    #"Weibull"="weib")
                    # inline=TRUE
       )
+    } else if(input$distType=="CUSTOM"){
+      # Custom is its own distribution type (it can be discrete, continuous, or
+      # a mix of point masses and a curve), so there is no sub-distribution to
+      # pick — fix the distrib id to "custom" via a hidden control.
+      div(style = "display:none;",
+          radioButtons("distrib", NULL, c("Custom" = "custom"),
+                       selected = restoreInput(id = "distrib", default = "custom")))
     }
   })
   
@@ -294,7 +354,9 @@ appServer <- function(input, output, session) {
              logis = logisForm,
              pareto = paretoForm,
              laplace = laplaceForm,
-             custom = customForm(input$customLatex, as.numeric(input$customLo), as.numeric(input$customHi)),
+             custom = customForm(customRExpr(),
+                                 if (identical(input$customMode, "latex")) input$customExpr else NULL,
+                                 as.numeric(input$customLo), as.numeric(input$customHi), input$customMasses),
       )
     }
   })
@@ -989,6 +1051,22 @@ appServer <- function(input, output, session) {
     req(length(inputErrors()) == 0)   # blank the plot when an input is invalid
     p <- plotObj()
     req(!is.null(p))
+    # Mixed custom distributions: overlay stems (height = probability) for the
+    # point masses on the density / probability plots, widening the x-window so
+    # masses outside the continuous support are still visible. (The CDF plot
+    # already shows the jumps via the mixed CDF.)
+    if (identical(input$distrib, "custom") && input$outType %in% c("PDF", "Probability")) {
+      s <- contSpec("custom"); at <- s$atoms
+      if (nrow(at) > 0) {
+        p <- p +
+          geom_segment(data = at, aes(x = loc, xend = loc, y = 0, yend = prob),
+                       color = prob_hl, linewidth = 1) +
+          geom_point(data = at, aes(x = loc, y = prob), color = prob_hl, size = 2.5)
+        lims <- range(c(s$lo, s$hi, at$loc)); pad <- 0.04 * diff(lims)   # lo < hi => diff > 0
+        # replaces the helper's coord_cartesian (benign "already present" note)
+        p <- suppressMessages(p + coord_cartesian(xlim = c(lims[1] - pad, lims[2] + pad)))
+      }
+    }
     dark <- isTRUE(input$dark_mode == "dark")
     tip  <- if (input$distrib %in% discreteDists) "text" else c("x", "y")
     bg   <- if (dark) "#1f2937" else "white"
@@ -1168,6 +1246,11 @@ appServer <- function(input, output, session) {
                                                 max = as.numeric(input$theta2)
                                           ))
              )),
+             # Custom may have point masses, so show P(X = x) (the atom
+             # probability, 0 if x is not an atom) alongside the density.
+             "custom" = { s <- contSpec("custom"); xv <- as.numeric(input$xFixedPC)
+               withMathJax(sprintf("$$\\mathbb{P}(X =  %.03f ) = %s \\\\ f(X =  %.03f ) = %s$$",
+                                   xv, fmtp(s$pmass(xv)), xv, fmtp(s$d(xv)))) },
              # default: contSpec-based families
              { s <- contSpec(input$distrib)
                withMathJax(sprintf("$$\\mathbb{P}(X =  %.03f ) = 0 \\\\ f(X =  %.03f ) = %s$$",

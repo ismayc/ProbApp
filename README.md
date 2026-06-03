@@ -19,11 +19,14 @@ custom-distribution builder. See [`NEWS.md`](NEWS.md) for the full changelog.
   Hypergeometric, Negative Binomial, Poisson
 - **Continuous:** Beta, Chi-square, Exponential, F, Gamma, Normal, Student's t,
   Uniform, Weibull, Log-Normal, Cauchy, Logistic, Pareto, Laplace
-- **Custom:** define your own density `f(x)` over a support `[lo, hi]`, with an
-  optional LaTeX label. The expression is parsed in a sandbox (whitelisted math
-  only — no file/network/`eval` access) and everything (normalization, CDF,
-  mean, variance, quantiles) is computed numerically. **Piecewise** densities
-  are supported via `ifelse()` and comparison/logical operators, e.g.
+- **Custom** (its own top-level distribution **type**): define your own density
+  `f(x)` over a support `[lo, hi]`, optional **point masses** (`location:weight`),
+  or both — a discrete, continuous, or **mixed** distribution, jointly normalized
+  to total probability 1. Enter the density as an **R expression or LaTeX**
+  (toggle). The expression is parsed in a sandbox (whitelisted math only — no
+  file/network/`eval` access) and everything (normalization, CDF with jumps at
+  masses, mean, variance, quantiles) is computed numerically. **Piecewise**
+  densities are supported via `ifelse()` and comparison/logical operators, e.g.
   `ifelse(x < 1, x, 2 - x)`.
 
 The Cauchy distribution's mean and variance are reported as *undefined*; Pareto
@@ -89,6 +92,12 @@ Server / Posit Connect):
 ```r
 rsconnect::deployApp()
 ```
+
+**Continuous deployment.** Pushing to the default branch automatically deploys
+to <https://ismay.shinyapps.io/ProbApp> via GitHub Actions
+(`.github/workflows/deploy.yaml`). It requires two repository secrets —
+`SHINYAPPS_TOKEN` and `SHINYAPPS_SECRET` (from your shinyapps.io account →
+Tokens). The workflow can also be triggered manually from the Actions tab.
 
 ## Project layout
 

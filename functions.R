@@ -697,9 +697,76 @@ custom_cumtrapz <- function(x, y) {
   c(0, cumsum((y[-1L] + y[-n]) / 2 * diff(x)))
 }
 
+# Convert a common subset of LaTeX math into an R expression string (for the
+# Custom distribution's "LaTeX" input mode). Handles \frac, ^{}, e^{}, \sqrt,
+# \left/\right, \cdot/\times, \pi, \ln/\log/trig, |..|, { } grouping, and a few
+# safe implicit-multiplication cases. Always returns a string; if the result
+# isn't valid R, the downstream sandbox parser reports a clear error.
+latex_to_expr <- function(s) {
+  if (is.null(s)) return("")
+  s <- as.character(s)[1L]
+  s <- sub("^\\s*f\\s*\\(\\s*x\\s*\\)\\s*=\\s*", "", s)     # strip a leading "f(x) ="
+  s <- gsub("\\\\left|\\\\right", "", s)                    # \left( \right) -> ( )
+  s <- gsub("\\\\,|\\\\;|\\\\!|\\\\quad|\\\\ ", "", s)       # spacing macros
+  s <- gsub("\\\\cdot|\\\\times", "*", s)
+  s <- gsub("\\\\pi", "pi", s)
+  s <- gsub("\\\\ln", "log", s)
+  s <- gsub("\\\\arcsin", "asin", s); s <- gsub("\\\\arccos", "acos", s); s <- gsub("\\\\arctan", "atan", s)
+  s <- gsub("\\\\Gamma", "gamma", s)
+  s <- gsub("\\\\(log|exp|sqrt|sin|cos|tan|sinh|cosh|tanh|gamma|abs|floor|ceil|frac)", "\\1", s)
+  # brace macros, resolved innermost-first via a fixpoint
+  repeat {
+    old <- s
+    s <- gsub("e\\^\\{([^{}]*)\\}", "exp(\\1)", s)          # e^{...} -> exp(...)
+    s <- gsub("\\^\\{([^{}]*)\\}", "^(\\1)", s)             # x^{...} -> x^(...)
+    s <- gsub("sqrt\\{([^{}]*)\\}", "sqrt(\\1)", s)         # \sqrt{...} (already de-slashed)
+    s <- gsub("frac\\{([^{}]*)\\}\\{([^{}]*)\\}", "((\\1)/(\\2))", s)
+    s <- gsub("\\{([^{}]*)\\}", "(\\1)", s)                 # leftover { } -> ( )
+    if (identical(s, old)) break
+  }
+  s <- gsub("\\|([^|]*)\\|", "abs(\\1)", s)                  # |a| -> abs(a)
+  # a space between two operands means multiplication (e.g. "\pi x", ") (")
+  repeat {
+    old <- s
+    s <- gsub("([a-zA-Z0-9)])[[:space:]]+([a-zA-Z0-9(])", "\\1*\\2", s)
+    if (identical(s, old)) break
+  }
+  s <- gsub("[[:space:]]+", "", s)                           # strip remaining spaces
+  # safe implicit multiplication (no separating space)
+  s <- gsub("([0-9.])([a-zA-Z])", "\\1*\\2", s)             # 2x -> 2*x, 2pi -> 2*pi
+  s <- gsub("([0-9.])\\(", "\\1*(", s)                       # 2( -> 2*(
+  s <- gsub("\\)([0-9.a-zA-Z(])", ")*\\1", s)               # )( -> )*(, )x -> )*x
+  s
+}
+
+# Parse a "location:weight, ..." point-mass string into list(loc, wt), or NULL
+# when empty. Throws a human-readable error on malformed entries.
+parse_masses <- function(str) {
+  if (is.null(str) || !nzchar(trimws(str))) return(NULL)
+  loc <- numeric(0); wt <- numeric(0)
+  for (part in strsplit(trimws(str), ",")[[1L]]) {
+    part <- trimws(part); if (!nzchar(part)) next
+    kv <- strsplit(part, ":")[[1L]]
+    if (length(kv) != 2L) stop("each point mass must be written as 'location:weight'", call. = FALSE)
+    l <- suppressWarnings(as.numeric(trimws(kv[1L])))
+    w <- suppressWarnings(as.numeric(trimws(kv[2L])))
+    if (!is.finite(l) || !is.finite(w)) stop("point-mass location and weight must be numbers", call. = FALSE)
+    if (w <= 0) stop("point-mass weights must be greater than 0", call. = FALSE)
+    loc <- c(loc, l); wt <- c(wt, w)
+  }
+  if (!length(loc)) return(NULL)
+  if (anyDuplicated(loc)) stop("point-mass locations must be distinct", call. = FALSE)
+  list(loc = loc, wt = wt)
+}
+
 # Build a full numeric spec (same shape as contSpec() entries) for the custom
-# density on [lo, hi]: normalized density, CDF, quantile, mean and variance.
-make_custom_spec <- function(expr_string, lo, hi) {
+# distribution: a continuous density g(x) on [lo, hi] and optional point masses
+# (a list(loc, wt) of locations and positive weights). Everything is normalized
+# jointly so the total probability (continuous + masses) is 1. Returns normalized
+# density, mixed CDF (with jumps at masses), quantile, mean, variance, the atom
+# table, and a pmass(x) accessor. With no masses this reduces exactly to the
+# previous pure-continuous behavior.
+make_custom_spec <- function(expr_string, lo, hi, masses = NULL) {
   f0 <- safe_pdf(expr_string)
   # Non-negative, finite, length-aligned base density (handles constant f(x)).
   fbase <- function(x) {
@@ -709,39 +776,220 @@ make_custom_spec <- function(expr_string, lo, hi) {
     v[v < 0] <- 0
     v
   }
-  Z <- tryCatch(integrate(fbase, lo, hi, stop.on.error = FALSE)$value,
-                error = function(e) NA_real_)
-  if (!is.finite(Z) || Z <= 0)
+  Zc <- tryCatch(integrate(fbase, lo, hi, stop.on.error = FALSE)$value,
+                 error = function(e) NA_real_)
+  if (!is.finite(Zc) || Zc < 0) Zc <- 0
+  loc <- if (is.null(masses)) numeric(0) else masses$loc
+  wt  <- if (is.null(masses)) numeric(0) else masses$wt
+  total <- Zc + sum(wt)
+  if (!is.finite(total) || total <= 0)
     stop("the expression does not integrate to a positive, finite value over the support", call. = FALSE)
-  dfun <- function(x) {
+
+  prob <- wt / total                       # atom probabilities (empty if no masses)
+  dfun <- function(x) {                    # continuous density component
     x <- as.numeric(x)
-    out <- fbase(x) / Z
+    out <- fbase(x) / total
     out[x < lo | x > hi] <- 0
     out
   }
-  # Precompute the CDF on a fine grid (fast, monotone) for p() and q().
   grid <- seq(lo, hi, length.out = 2049L)
-  cdf  <- custom_cumtrapz(grid, dfun(grid))
-  tot  <- cdf[length(cdf)]
-  if (is.finite(tot) && tot > 0) cdf <- cdf / tot
-  pfun <- function(x) approx(grid, cdf, xout = pmin(pmax(as.numeric(x), lo), hi), rule = 2)$y
-  qfun <- function(p) approx(cdf, grid, xout = as.numeric(p), rule = 2, ties = "ordered")$y
-  mu <- tryCatch(integrate(function(x) x * dfun(x), lo, hi, stop.on.error = FALSE)$value,
-                 error = function(e) NA_real_)
-  v2 <- tryCatch(integrate(function(x) (x - mu)^2 * dfun(x), lo, hi, stop.on.error = FALSE)$value,
-                 error = function(e) NA_real_)
+  cc <- custom_cumtrapz(grid, fbase(grid)) / total      # continuous CDF: 0 .. Zc/total
+
+  if (length(loc)) {
+    Fc <- function(x) approx(grid, cc, xout = pmin(pmax(as.numeric(x), lo), hi), rule = 2)$y
+    Fa <- function(x) vapply(as.numeric(x), function(xi) sum(prob[loc <= xi]), numeric(1))
+    pfun <- function(x) Fc(x) + Fa(x)
+    # Invert the mixed CDF on a grid that brackets each jump (loc-eps, loc).
+    xs <- sort(unique(c(grid, loc, loc - 1e-9)))
+    Fs <- pfun(xs)
+    qfun <- function(p) vapply(as.numeric(p), function(t) {
+      i <- which(Fs >= t)[1L]; if (is.na(i)) xs[length(xs)] else xs[i]
+    }, numeric(1))
+  } else {
+    tot <- cc[length(cc)]; if (is.finite(tot) && tot > 0) cc <- cc / tot   # normalize to exactly 1
+    pfun <- function(x) approx(grid, cc, xout = pmin(pmax(as.numeric(x), lo), hi), rule = 2)$y
+    qfun <- function(p) approx(cc, grid, xout = as.numeric(p), rule = 2, ties = "ordered")$y
+  }
+
+  muc <- tryCatch(integrate(function(x) x * dfun(x), lo, hi, stop.on.error = FALSE)$value,
+                  error = function(e) 0)
+  ex2c <- tryCatch(integrate(function(x) x^2 * dfun(x), lo, hi, stop.on.error = FALSE)$value,
+                   error = function(e) 0)
+  mu <- muc + sum(prob * loc)
+  v2 <- (ex2c + sum(prob * loc^2)) - mu^2
+  # Probability mass exactly at a query point (0 unless it is an atom location).
+  pmass <- function(x) vapply(as.numeric(x), function(xi) {
+    i <- which(abs(loc - xi) <= 1e-8 * pmax(1, abs(loc)))[1L]; if (is.na(i)) 0 else prob[i]
+  }, numeric(1))
+
   list(name = "Custom", d = dfun, p = pfun, q = qfun,
-       mean = mu, var = v2, lo = lo, hi = hi)
+       mean = mu, var = v2, lo = lo, hi = hi,
+       # Normalizing constant for the continuous part: f_c(x) = C * g(x).
+       C = 1 / total,
+       atoms = data.frame(loc = loc, prob = prob),   # 0-row when no masses
+       contMass = Zc / total, pmass = pmass)
 }
 
 # Validation hook for the server: returns NULL when the custom inputs yield a
 # valid distribution, otherwise a human-readable error string.
-validate_custom <- function(expr_string, lo, hi) {
+validate_custom <- function(expr_string, lo, hi, masses_str = NULL) {
   if (is.null(lo) || is.null(hi) || !is.finite(lo) || !is.finite(hi))
     return("Enter numeric lower and upper bounds for the support.")
   if (lo >= hi)
     return("The lower bound of the support must be less than the upper bound.")
-  msg <- tryCatch({ make_custom_spec(expr_string, lo, hi); NULL },
+  msg <- tryCatch({ make_custom_spec(expr_string, lo, hi, parse_masses(masses_str)); NULL },
                   error = function(e) conditionMessage(e))
   if (!is.null(msg)) paste0("Custom f(x): ", msg) else NULL
+}
+
+############################################################################
+# Render a custom expression as nicely formatted LaTeX (incl. piecewise)   #
+############################################################################
+# A small converter from the whitelisted expression sublanguage to LaTeX,
+# used to show f(x) on the Formulas page — including a \begin{cases} block
+# for piecewise (ifelse-based) densities. Pure string building, no eval.
+
+.lx_num <- function(x) trimws(formatC(as.numeric(x), format = "g", digits = 6))
+
+# One-argument functions -> LaTeX templates (sprintf with a single %s).
+.lx_unary <- c(
+  sqrt = "\\sqrt{%s}", abs = "\\left|%s\\right|", exp = "e^{%s}",
+  log = "\\ln\\!\\left(%s\\right)", log10 = "\\log_{10}\\!\\left(%s\\right)",
+  log2 = "\\log_{2}\\!\\left(%s\\right)",
+  sin = "\\sin\\!\\left(%s\\right)", cos = "\\cos\\!\\left(%s\\right)",
+  tan = "\\tan\\!\\left(%s\\right)", asin = "\\arcsin\\!\\left(%s\\right)",
+  acos = "\\arccos\\!\\left(%s\\right)", atan = "\\arctan\\!\\left(%s\\right)",
+  sinh = "\\sinh\\!\\left(%s\\right)", cosh = "\\cosh\\!\\left(%s\\right)",
+  tanh = "\\tanh\\!\\left(%s\\right)", gamma = "\\Gamma\\!\\left(%s\\right)",
+  lgamma = "\\ln\\Gamma\\!\\left(%s\\right)", factorial = "\\left(%s\\right)!",
+  floor = "\\lfloor %s \\rfloor", ceiling = "\\lceil %s \\rceil"
+)
+# Binary operators (besides + - * / ^, which are handled specially).
+.lx_binop <- c("<" = "<", ">" = ">", "<=" = "\\le", ">=" = "\\ge",
+               "==" = "=", "!=" = "\\ne", "&" = "\\;\\text{and}\\;",
+               "|" = "\\;\\text{or}\\;")
+
+# Operator precedence for deciding when to add parentheses (higher binds tighter).
+.lx_prec <- function(node) {
+  if (!is.call(node)) return(10L)
+  op <- as.character(node[[1L]])
+  if (op == "(") return(.lx_prec(node[[2L]]))      # grouping is transparent
+  if (op == "|") return(1L)
+  if (op == "&") return(2L)
+  if (op %in% c("<", ">", "<=", ">=", "==", "!=")) return(3L)
+  if (op == "+") return(4L)
+  if (op == "-") return(if (length(node) == 3L) 4L else 6L)
+  if (op == "*") return(5L)
+  if (op == "^") return(7L)
+  if (op == "!") return(6L)
+  10L
+}
+
+# Render a node, wrapping in parentheses if it binds looser than the context.
+.lx_wrap <- function(node, parent_prec) {
+  s <- expr_to_latex(node)
+  if (.lx_prec(node) < parent_prec) paste0("\\left(", s, "\\right)") else s
+}
+
+# Convert a parsed expression (or a string) to LaTeX.
+expr_to_latex <- function(node) {
+  if (is.character(node) && length(node) == 1L) node <- parse(text = node)[[1L]]
+  if (is.numeric(node) || is.logical(node)) return(.lx_num(node))
+  if (is.name(node)) { nm <- as.character(node); return(if (nm == "pi") "\\pi" else nm) }
+  if (!is.call(node)) return("?")
+
+  op <- as.character(node[[1L]]); a <- as.list(node)[-1L]
+  if (op == "(") return(expr_to_latex(a[[1L]]))                       # transparent grouping
+  if (op == "ifelse" && length(a) == 3L)                             # nested piecewise -> inline cases
+    return(sprintf("\\begin{cases} %s, & %s \\\\ %s, & \\text{otherwise} \\end{cases}",
+                   expr_to_latex(a[[2L]]), expr_to_latex(a[[1L]]), expr_to_latex(a[[3L]])))
+  if (op == "-" && length(a) == 1L) return(paste0("-", .lx_wrap(a[[1L]], 6L)))   # unary minus
+  if (op == "!" && length(a) == 1L) return(paste0("\\lnot ", .lx_wrap(a[[1L]], 6L)))
+  if (op == "/") return(sprintf("\\frac{%s}{%s}", expr_to_latex(a[[1L]]), expr_to_latex(a[[2L]])))
+  if (op == "^") {
+    base <- if (.lx_prec(a[[1L]]) < 7L) paste0("\\left(", expr_to_latex(a[[1L]]), "\\right)") else expr_to_latex(a[[1L]])
+    return(paste0(base, "^{", expr_to_latex(a[[2L]]), "}"))
+  }
+  if (op == "*") {
+    la <- .lx_wrap(a[[1L]], 5L); lb <- .lx_wrap(a[[2L]], 5L)
+    return(if (is.numeric(a[[1L]])) paste0(la, " ", lb) else paste0(la, " \\cdot ", lb))   # 2x vs a·b
+  }
+  if (op %in% c("+", "-") && length(a) == 2L)
+    return(paste(.lx_wrap(a[[1L]], 4L), op, .lx_wrap(a[[2L]], 4L)))
+  if (op %in% names(.lx_binop) && length(a) == 2L) {
+    p <- .lx_prec(node)
+    return(paste(.lx_wrap(a[[1L]], p), .lx_binop[[op]], .lx_wrap(a[[2L]], p)))
+  }
+  if (op %in% names(.lx_unary) && length(a) == 1L) return(sprintf(.lx_unary[[op]], expr_to_latex(a[[1L]])))
+  if (op == "choose") return(sprintf("\\binom{%s}{%s}", expr_to_latex(a[[1L]]), expr_to_latex(a[[2L]])))
+  if (op %in% c("beta", "lbeta"))
+    return(sprintf("%sB\\!\\left(%s, %s\\right)", if (op == "lbeta") "\\ln " else "",
+                   expr_to_latex(a[[1L]]), expr_to_latex(a[[2L]])))
+  # everything else (min/max/pmin/pmax, density functions) -> roman name + args
+  disp <- c(pmin = "min", pmax = "max")[op]; if (is.na(disp)) disp <- op
+  sprintf("\\operatorname{%s}\\!\\left(%s\\right)", disp,
+          paste(vapply(a, expr_to_latex, character(1)), collapse = ", "))
+}
+
+# Flatten a (possibly nested-in-the-else-branch) ifelse into ordered pieces,
+# each list(cond = <node or NULL for the final "otherwise">, val = <node>).
+.flatten_ifelse <- function(node) {
+  if (is.call(node) && identical(as.character(node[[1L]]), "ifelse") && length(node) == 4L)
+    c(list(list(cond = node[[2L]], val = node[[3L]])), .flatten_ifelse(node[[4L]]))
+  else
+    list(list(cond = NULL, val = node))
+}
+
+# Wrap a value in parentheses when a leading constant factor would otherwise
+# bind only to its first term (e.g. C * (2 - x)).
+.lx_factorwrap <- function(node) {
+  s <- expr_to_latex(node)
+  if (is.call(node) && as.character(node[[1L]]) %in% c("+", "-") && length(node) == 3L)
+    paste0("\\left(", s, "\\right)")
+  else s
+}
+
+# LaTeX for the continuous density component f(x) = C * g(x) on [lo, hi], with a
+# \begin{cases} breakdown for piecewise densities.
+.custom_cont_latex <- function(ex, C, lo, hi) {
+  cfac <- if (abs(C - 1) < 5e-4) "" else paste0(trimws(formatC(C, format = "g", digits = 4)), "\\,")
+  los <- .lx_num(lo); his <- .lx_num(hi)
+  # A piece's density value: fold the constant into a plain number when the
+  # piece is itself a constant (e.g. C·2 -> a single number), else "C·g(x)".
+  pval <- function(val) {
+    if (is.numeric(val)) .lx_num(C * as.numeric(val)) else paste0(cfac, .lx_factorwrap(val))
+  }
+  pieces <- .flatten_ifelse(ex)
+  if (length(pieces) == 1L) {
+    sprintf("f(x) = %s, \\quad %s \\le x \\le %s", pval(pieces[[1L]]$val), los, his)
+  } else {
+    rows <- vapply(pieces, function(pc) {
+      cond <- if (is.null(pc$cond)) "\\text{otherwise}" else expr_to_latex(pc$cond)
+      paste0(pval(pc$val), ", & ", cond)
+    }, character(1))
+    sprintf("f(x) = \\begin{cases} %s \\end{cases} \\quad \\text{for } %s \\le x \\le %s",
+            paste(rows, collapse = " \\\\ "), los, his)
+  }
+}
+
+# Full LaTeX for the normalized custom distribution on [lo, hi]: point masses
+# (P(X = x_i) = p_i) and/or the continuous density component, with the numeric
+# normalizing constant. Throws on an invalid support or non-integrable /
+# unparseable expression.
+custom_density_latex <- function(expr_string, lo, hi, masses = NULL) {
+  if (is.null(lo) || is.null(hi) || !is.finite(lo) || !is.finite(hi) || lo >= hi)
+    stop("invalid support", call. = FALSE)
+  ex <- parse(text = expr_string)[[1L]]
+  custom_check_node(ex)                                  # only the sandboxed sublanguage
+  spec <- make_custom_spec(expr_string, lo, hi, masses)  # also rejects non-integrable
+  parts <- character(0)
+  if (nrow(spec$atoms) > 0L) {                           # point masses
+    mass_rows <- vapply(seq_len(nrow(spec$atoms)), function(i)
+      sprintf("\\mathbb{P}(X = %s) = %s", .lx_num(spec$atoms$loc[i]), .lx_num(spec$atoms$prob[i])),
+      character(1))
+    parts <- c(parts, paste(mass_rows, collapse = ",\\quad "))
+  }
+  if (spec$contMass > 1e-9)                              # continuous density component
+    parts <- c(parts, .custom_cont_latex(ex, spec$C, lo, hi))
+  paste(parts, collapse = " \\\\[4pt] ")
 }
