@@ -47,7 +47,10 @@ jobs:
           cp global.R ui.R server.R functions.R formulas.R _app/
 
       - name: Export to a static shinylive site
-        run: Rscript -e 'shinylive::export("_app", "_site")'
+        # template_params$title sets the host page's <title> (the browser-tab
+        # name). The app runs in an iframe, so its own window_title doesn't
+        # reach the tab; without this it defaults to "Shiny App".
+        run: Rscript -e 'shinylive::export("_app", "_site", template_params = list(title = "Calculator for Probability Distributions"))'
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
