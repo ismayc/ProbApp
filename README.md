@@ -13,6 +13,12 @@ Originally created by Dr. Chester Ismay and Logan Soich; modernized with
 interaction, input validation, shareable-link bookmarking, and a sandboxed
 custom-distribution builder. See [`NEWS.md`](NEWS.md) for the full changelog.
 
+**Try it live** — two hosted versions, built from the same source:
+
+- **Server version:** <https://ismay.shinyapps.io/ProbApp/> (runs on shinyapps.io)
+- **Browser-only version:** <https://ismayc.github.io/ProbApp/> (no server — R runs
+  entirely in your browser via WebAssembly, so nothing to install)
+
 ## Distributions
 
 - **Discrete:** Bernoulli, Binomial, Discrete Uniform, Geometric,
@@ -99,6 +105,31 @@ to <https://ismay.shinyapps.io/ProbApp> via GitHub Actions
 `SHINYAPPS_TOKEN` and `SHINYAPPS_SECRET` (from your shinyapps.io account →
 Tokens). The workflow can also be triggered manually from the Actions tab.
 
+### Static browser build (shinylive → GitHub Pages)
+
+The same app is also published as a fully static, **server-free** build that runs
+entirely in the browser — R compiled to WebAssembly via
+[shinylive](https://posit-dev.github.io/r-shinylive/) — at
+<https://ismayc.github.io/ProbApp/>. A second workflow
+(`.github/workflows/pages.yaml`) exports it and deploys to GitHub Pages on every
+push; no secrets are needed (set **Settings → Pages → Source: GitHub Actions**).
+It is built from the same source — only the runtime files are exported (`renv/`
+and `.Rprofile` are excluded, since they would break webR). Two consequences of
+running under webR: the first load is heavier (the browser downloads webR and the
+package WebAssembly, then caches them), and **"Share link" is omitted** there
+(URL bookmarking can't reach the address bar from inside the shinylive iframe).
+
+To build it locally:
+
+```r
+# Stage only the runtime files (as the workflow does), then export.
+dir.create("_app")
+file.copy(c("global.R", "ui.R", "server.R", "functions.R", "formulas.R"), "_app")
+shinylive::export("_app", "_site",
+                  template_params = list(title = "Calculator for Probability Distributions"))
+# Serve _site/ with any static server, e.g.:  python3 -m http.server -d _site
+```
+
 ## Project layout
 
 | File | Purpose |
@@ -107,6 +138,7 @@ Tokens). The workflow can also be triggered manually from the Actions tab.
 | `server.R` | reactive logic: validation, plots, and all distribution math |
 | `functions.R` | plotting helpers, the plot theme/palette, `fmtp`, the custom-distribution sandbox/engine, small distribution utilities |
 | `formulas.R` | the MathJax formula reference pages |
-| `global.R` | enables URL bookmarking before the UI/server load |
+| `global.R` | enables URL bookmarking before the UI/server load; sets `is_webr`, which switches off Share-link/bookmarking in the browser-only build |
 | `tests/` | testthat suite, coverage harness, and verification audits |
+| `.github/workflows/` | CI (`tests.yaml`) plus two deploys: `deploy.yaml` (shinyapps.io) and `pages.yaml` (shinylive → GitHub Pages) |
 | [`NEWS.md`](NEWS.md) | changelog of all releases |
