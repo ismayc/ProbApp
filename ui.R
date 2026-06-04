@@ -38,7 +38,10 @@ function(request) page_sidebar(
     span("Calculator for Probability Distributions"),
     div(
       class = "d-flex align-items-center gap-3 app-title-controls",
-      bookmarkButton(label = "Share link", title = "Capture this configuration in a shareable URL"),
+      # "Share link" relies on URL bookmarking, which is meaningless under webR
+      # (writes to the iframe URL, not the address bar) — omit it there. A NULL
+      # child is simply dropped from the tag, so the server build is unchanged.
+      if (!is_webr) bookmarkButton(label = "Share link", title = "Capture this configuration in a shareable URL"),
       actionLink("about", "Help / About"),
       input_dark_mode(id = "dark_mode", mode = "light")
     )
