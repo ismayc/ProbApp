@@ -42,6 +42,19 @@ appServer <- function(input, output, session) {
   # On "Share link", push the encoded state into the address bar (see helper).
   onBookmarked(applyBookmarkUrl)
 
+  # Pre-register the plot's plotly event IDs. plotly only records these when the
+  # widget actually renders (register_plot_events(), via prepareWidget), so an
+  # event_data() call evaluated before the first render — the startup flush, and
+  # every flush under testServer (which never renders the output) — fires a
+  # deferred onFlushed() "event not registered" warning that inline
+  # suppressWarnings() cannot reach. Seeding the registry up front makes the
+  # check pass everywhere; renderPlotly's own event_register() still wires the
+  # client-side events (the unique() in register_plot_events dedupes).
+  session$userData$plotlyShinyEventIDs <- unique(c(
+    session$userData$plotlyShinyEventIDs,
+    "plotly_click-distribPlot", "plotly_selected-distribPlot"
+  ))
+
   # Effective R-expression for the custom density: the density field is read as
   # LaTeX (and converted) when the input mode is "latex", otherwise verbatim.
   customRExpr <- reactive({

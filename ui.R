@@ -2,10 +2,14 @@
 # Shiny app. Modernized with bslib (Bootstrap 5): all controls live in the
 # sidebar; results (formula, plot, calculation) are shown as cards.
 
-library(shiny)
-library(ggplot2)
-library(bslib)
-library(plotly)
+# suppressMessages silences the "Attaching package / object is masked" notices
+# these packages print on attach (matches the same wrapping in server.R).
+suppressMessages({
+  library(shiny)
+  library(ggplot2)
+  library(bslib)
+  library(plotly)
+})
 
 # Clean academic theme: Inter type, calm teal accent, light/dark capable.
 prob_theme <- bs_theme(
@@ -226,6 +230,10 @@ function(request) page_sidebar(
       /* The custom-distribution card's controls wrap onto more lines on a
          phone; let it grow to fit instead of clipping at the desktop 400px. */
       .custom-dist-card, .custom-dist-card .card-body { height: auto !important; min-height: 0 !important; }
+      /* Plotly's floating toolbar (gray icons, top-right) overlaps the long
+         plot title on a narrow screen; hide it on phones. Tap-to-set a value
+         and drag-to-select a range still work without it. */
+      .js-plotly-plot .modebar { display: none !important; }
     }
   "))),
 
