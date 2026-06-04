@@ -24,10 +24,12 @@ prob_theme <- bs_theme(
 function(request) page_sidebar(
   theme = prob_theme,
   title = div(
-    class = "d-flex justify-content-between align-items-center w-100",
+    # flex-wrap lets the control group drop below the title on narrow (phone)
+    # screens instead of overflowing the header; gap-2 keeps a gap once wrapped.
+    class = "d-flex justify-content-between align-items-center flex-wrap gap-2 w-100 app-title-bar",
     span("Calculator for Probability Distributions"),
     div(
-      class = "d-flex align-items-center gap-3",
+      class = "d-flex align-items-center gap-3 app-title-controls",
       bookmarkButton(label = "Share link", title = "Capture this configuration in a shareable URL"),
       actionLink("about", "Help / About"),
       input_dark_mode(id = "dark_mode", mode = "light")
@@ -212,6 +214,21 @@ function(request) page_sidebar(
   # --------------------------------------------------------------- Main area
   withMathJax(),
 
+  # Mobile-browser tweaks (phones, <=575.98px = Bootstrap's `xs`). The sidebar
+  # itself already collapses to a toggleable overlay on small screens via bslib;
+  # these rules fix the header crowding and the fixed-height custom card, which
+  # do not adapt on their own.
+  tags$head(tags$style(HTML("
+    @media (max-width: 575.98px) {
+      /* Smaller, tighter header so the long app title fits and wraps cleanly */
+      .app-title-bar { font-size: 0.95rem; line-height: 1.2; }
+      .app-title-controls { font-size: 0.85rem; gap: 0.75rem !important; }
+      /* The custom-distribution card's controls wrap onto more lines on a
+         phone; let it grow to fit instead of clipping at the desktop 400px. */
+      .custom-dist-card, .custom-dist-card .card-body { height: auto !important; min-height: 0 !important; }
+    }
+  "))),
+
   div(class = "text-muted small mb-2",
       "Developed by Dr. Chester Ismay (",
       a("chester.ismay@gmail.com", href = "mailto:chester.ismay@gmail.com"),
@@ -230,7 +247,10 @@ function(request) page_sidebar(
     card(
       # In the fillable main area this card does not auto-grow to its content,
       # so we give it an explicit height tall enough to show every control plus
-      # the help link (fill = FALSE keeps it from stretching further).
+      # the help link (fill = FALSE keeps it from stretching further). On phones
+      # a media rule (see tags$head above) overrides this to auto so the wrapped
+      # controls aren't clipped — `custom-dist-card` is that rule's hook.
+      class = "custom-dist-card",
       fill = FALSE,
       min_height = "400px",
       height = "400px",

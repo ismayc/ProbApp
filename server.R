@@ -1086,7 +1086,9 @@ appServer <- function(input, output, session) {
                  font  = list(color = fg),
                  xaxis = list(gridcolor = grid, zerolinecolor = grid),
                  yaxis = list(gridcolor = grid, zerolinecolor = grid))
-    gp <- config(gp, displaylogo = FALSE,
+    # responsive = TRUE: plotly re-fits to its container on resize / phone
+    # rotation rather than keeping the width it was first rendered at.
+    gp <- config(gp, displaylogo = FALSE, responsive = TRUE,
                  modeBarButtonsToRemove = list("lasso2d", "autoScale2d", "hoverClosestCartesian", "hoverCompareCartesian"),
                  toImageButtonOptions = list(format = "png", filename = "distribution-plot", scale = 2))
     gp <- event_register(gp, "plotly_click")
