@@ -12,10 +12,14 @@ suppressMessages({
 })
 
 # Clean academic theme: Inter type, calm teal accent, light/dark capable.
+# local = FALSE links Inter from the Google Fonts CDN instead of downloading the
+# font files at theme-compile time. That download is unreliable under webR
+# (the shinylive/GitHub Pages build), and the CDN link works identically in the
+# server build too — so the same code serves both deployments.
 prob_theme <- bs_theme(
   version = 5,
-  base_font    = font_google("Inter"),
-  heading_font = font_google("Inter"),
+  base_font    = font_google("Inter", local = FALSE),
+  heading_font = font_google("Inter", local = FALSE),
   primary = "#0d9488",
   # Links/accent text use a darker teal that meets WCAG AA (>=4.5:1) on white;
   # the lighter primary is kept for UI components (buttons/radios), which only

@@ -1,0 +1,66 @@
+name: Deploy shinylive site to GitHub Pages
+
+# Builds a fully static, browser-only (webR/WASM) build of the app with
+# {shinylive} and publishes it to GitHub Pages on every push to the default
+# branch. The result runs entirely client-side at:
+#   https://ismayc.github.io/ProbApp/
+# This is independent of the shinyapps.io deploy (deploy.yaml); both are built
+# from the same source files.
+#
+# Requires Pages to be enabled with "Build and deployment -> Source: GitHub
+# Actions" (Settings -> Pages). No secrets are needed.
+
+on:
+  push:
+    branches: [master, main]
+  workflow_dispatch:
+
+# Permissions the deploy-pages action needs to publish the artifact.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Allow only one concurrent Pages deployment; let an in-progress run finish.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          use-public-rspm: true
+
+      - name: Install shinylive
+        run: Rscript -e 'install.packages("shinylive")'
+
+      - name: Stage runtime app files
+        # Only the app's runtime files are exported — never renv/, .Rprofile
+        # (which sources renv/activate.R and would break webR), tests/, or CI.
+        run: |
+          mkdir -p _app
+          cp global.R ui.R server.R functions.R formulas.R _app/
+
+      - name: Export to a static shinylive site
+        run: Rscript -e 'shinylive::export("_app", "_site")'
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
