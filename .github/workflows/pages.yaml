@@ -13,6 +13,10 @@ name: Deploy shinylive site to GitHub Pages
 on:
   push:
     branches: [master, main]
+    # Skip rebuilds for docs-only changes (README/NEWS/etc.). A commit that
+    # also touches non-.md files still rebuilds. workflow_dispatch is unaffected.
+    paths-ignore:
+      - '**.md'
   workflow_dispatch:
 
 # Permissions the deploy-pages action needs to publish the artifact.
