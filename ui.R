@@ -11,6 +11,12 @@ suppressMessages({
   library(plotly)
 })
 
+# Mirror global.R's webR detection here so ui.R is self-contained: the test
+# harness sources ui.R without global.R, and Shiny evaluates ui.R in its own
+# scope. Same value either way — TRUE only in the shinylive (wasm) build, where
+# the iframe makes URL bookmarking / "Share link" meaningless (see below).
+is_webr <- identical(R.version[["arch"]], "wasm32")
+
 # Clean academic theme: Inter type, calm teal accent, light/dark capable.
 # local = FALSE links Inter from the Google Fonts CDN instead of downloading the
 # font files at theme-compile time. That download is unreliable under webR

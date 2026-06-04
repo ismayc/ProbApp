@@ -8,6 +8,42 @@ decade-old application; each subsequent minor version is one milestone of the
 
 ---
 
+## 0.10.0 — Mobile-friendly + browser-only (shinylive) deployment (2026-06-04)
+
+### Added
+- **Second, server-free deployment**: the app is now also published as a fully
+  static, in-browser build (R compiled to WebAssembly via webR/**shinylive**) on
+  GitHub Pages at <https://ismayc.github.io/ProbApp/>. It runs entirely
+  client-side — no server — and is built from the same source by a new GitHub
+  Actions workflow on every push (the browser tab is titled the same as the app).
+  The existing shinyapps.io server deployment continues alongside it.
+- **Loading overlay**: a full-screen spinner ("Loading calculator…") shown on
+  startup and faded out once the app finishes its first render, in light or dark
+  to match the browser. Especially helpful for the heavier first boot of the
+  browser-only build.
+
+### Changed
+- **Mobile-friendly layout** on phones: the header wraps its controls instead of
+  overflowing, the custom-distribution card grows to fit instead of clipping, the
+  plot is responsive, the Plotly toolbar is hidden where it overlapped the title,
+  long plot titles are scaled to fit, and crowded discrete x-axis labels are
+  thinned (every other label kept).
+- The "Inter" font now loads from the Google Fonts CDN — required for the
+  browser-only build and visually identical in the server build.
+- **"Share link" appears in the server build only**: under webR the app runs in
+  an iframe where URL bookmarking can't reach the address bar, so the button (and
+  bookmarking) are omitted from the browser-only build.
+
+### Fixed
+- Silenced harmless startup console noise: the package "Attaching / object is
+  masked" notices and the deferred Plotly "event … not registered" warnings (the
+  test suite now reports **zero** warnings).
+
+### Verified
+- Both deployments confirmed live; the browser-only build exercised in a real
+  browser (webR boots and the full app — sidebar, Plotly plot, MathJax — renders
+  with no errors). Suite green at 1,095 tests / 100% coverage, now 0 warnings.
+
 ## 0.9.0 — Custom as its own type: mixed distributions + LaTeX input (2026-06-03)
 
 ### Added
