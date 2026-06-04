@@ -286,6 +286,11 @@ function(request) page_sidebar(
          than a narrow plot and gets clipped at both ends; shrink the title font
          on phones so the centered text fits within the plotting area. */
       .js-plotly-plot .gtitle { font-size: 13px !important; }
+      /* Discrete plots use a category x-axis, so every value (0,1,…,15) gets a
+         tick and they collide on a narrow plot. Hide every other label (keeps
+         0,2,4,…) so they stay legible. A stylesheet rule re-applies on each
+         plot redraw, unlike a one-shot Plotly.relayout. */
+      .js-plotly-plot .xaxislayer-above .xtick:nth-of-type(even) { display: none; }
     }
   "))),
 
