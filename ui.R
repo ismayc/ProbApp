@@ -218,6 +218,54 @@ function(request) page_sidebar(
   # --------------------------------------------------------------- Main area
   withMathJax(),
 
+  # Loading overlay: shown immediately (it ships in the initial HTML) and faded
+  # out once Shiny finishes its first render, so people see a clean spinner
+  # instead of a half-styled page while the Inter font, MathJax, Plotly.js and
+  # the compiled theme load. `shiny:idle` fires after the first flush completes;
+  # the 8s timeout is a safety net so the overlay can never get stuck.
+  tags$head(tags$style(HTML("
+    #app-loading {
+      position: fixed; inset: 0; z-index: 3000;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 1rem; background: #ffffff; transition: opacity 0.4s ease;
+    }
+    #app-loading.app-loading-done { opacity: 0; pointer-events: none; }
+    .app-loading-spinner {
+      width: 2.75rem; height: 2.75rem; border-radius: 50%;
+      border: 4px solid #cbd5e1; border-top-color: #0d9488;
+      animation: app-spin 0.8s linear infinite;
+    }
+    .app-loading-text { color: #0f766e; font-weight: 500; }
+    @keyframes app-spin { to { transform: rotate(360deg); } }
+    @media (prefers-color-scheme: dark) {
+      #app-loading { background: #1f2937; }
+      .app-loading-text { color: #5eead4; }
+      .app-loading-spinner { border-color: #475569; border-top-color: #2dd4bf; }
+    }
+  "))),
+  tags$head(tags$script(HTML("
+    (function() {
+      function hideLoader() {
+        var el = document.getElementById('app-loading');
+        if (!el) return;
+        el.classList.add('app-loading-done');
+        setTimeout(function() { el.style.display = 'none'; }, 400);
+      }
+      document.addEventListener('DOMContentLoaded', function() {
+        // shiny:idle is a jQuery-triggered event, so bind it via jQuery (loaded
+        // by Shiny in <head>). The 8s timeout is a safety net so the overlay
+        // can never get stuck if that event is delayed or missed.
+        if (window.jQuery) window.jQuery(document).one('shiny:idle', hideLoader);
+        setTimeout(hideLoader, 8000);
+      });
+    })();
+  "))),
+  div(
+    id = "app-loading",
+    div(class = "app-loading-spinner"),
+    div(class = "app-loading-text", "Loading calculator…")
+  ),
+
   # Mobile-browser tweaks (phones, <=575.98px = Bootstrap's `xs`). The sidebar
   # itself already collapses to a toggleable overlay on small screens via bslib;
   # these rules fix the header crowding and the fixed-height custom card, which
