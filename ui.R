@@ -282,6 +282,10 @@ function(request) page_sidebar(
          plot title on a narrow screen; hide it on phones. Tap-to-set a value
          and drag-to-select a range still work without it. */
       .js-plotly-plot .modebar { display: none !important; }
+      /* A long plot title (e.g. \"Binomial Probability Mass Function\") is wider
+         than a narrow plot and gets clipped at both ends; shrink the title font
+         on phones so the centered text fits within the plotting area. */
+      .js-plotly-plot .gtitle { font-size: 13px !important; }
     }
   "))),
 
