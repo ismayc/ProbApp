@@ -6,7 +6,7 @@
 #     which is a different method from the app's grid-trapezoid CDF/quantile.
 # Also confirms the sandbox refuses unsafe / invalid expressions (the app
 # surfaces a validation error and blanks the result rather than evaluating).
-suppressMessages({library(shiny);library(ggplot2);library(bslib);library(plotly)})
+suppressMessages({library(shiny);library(bslib)})
 source("server.R")
 strip <- function(x) paste(gsub("<[^>]+>"," ",as.character(x)),collapse=" ")
 S <- function(o) tryCatch({v<-strip(o); if(length(v)==0)"" else v}, error=function(e) paste("ERR:",conditionMessage(e)))

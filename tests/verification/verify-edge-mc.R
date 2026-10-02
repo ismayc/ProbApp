@@ -1,6 +1,6 @@
 # Edge-case, internal-self-consistency, and Monte-Carlo verification of the app.
 # Complements the analytic multi-regime audit (verify_stats2.R).
-suppressMessages({library(shiny); library(ggplot2); library(bslib); library(plotly)})
+suppressMessages({library(shiny); library(bslib)})
 source("server.R")
 
 strip <- function(x) paste(gsub("<[^>]+>", " ", as.character(x)), collapse = " ")

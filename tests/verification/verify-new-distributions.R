@@ -1,4 +1,4 @@
-suppressMessages({library(shiny);library(ggplot2);library(bslib);library(plotly)})
+suppressMessages({library(shiny);library(bslib)})
 source("server.R")
 strip <- function(x) paste(gsub("<[^>]+>"," ",as.character(x)),collapse=" ")
 S <- function(o) tryCatch({v<-strip(o); if(length(v)==0)"" else v}, error=function(e) paste("ERR:",conditionMessage(e)))

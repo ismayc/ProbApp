@@ -7,7 +7,7 @@
 #   * server.R                  <- a testServer() driver over all branches
 #   * ui.R                      <- sourcing the UI builds every control
 suppressMessages({
-  library(shiny); library(ggplot2); library(bslib)
+  library(shiny); library(bslib)
   library(testthat); library(covr)
 })
 

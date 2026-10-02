@@ -1,12 +1,17 @@
-# Every plotting helper should build into a valid ggplot without error.
+# Every plotting helper should build a valid plot without error.
 
-# Force a ggplot object through the full build pipeline so that any lazy
-# evaluation error surfaces; return TRUE on success.
+# A plot is a "prob_plot": plotly.js traces plus a layout. Check its shape, that
+# every trace has matching x / y lengths, and that it survives the light and
+# dark finishing step and Shiny's JSON serialization.
 builds <- function(p) {
-  expect_s3_class(p, "ggplot")
-  # suppress the benign "Ignoring unknown aesthetics: text" (the `text` tooltip
-  # aesthetic is used by plotly, not by ggplot's own renderer)
-  expect_no_error(suppressWarnings(ggplot2::ggplot_build(p)))
+  expect_s3_class(p, "prob_plot")
+  expect_gt(length(p$data), 0)
+  for (tr in p$data) expect_equal(length(tr$x), length(tr$y))
+  for (dark in c(FALSE, TRUE)) {
+    out <- finish_prob_plot(p, dark = dark)
+    expect_named(out, c("data", "layout", "config"))
+    expect_no_error(shiny:::toJSON(out))
+  }
 }
 
 test_that("distribPlot builds for every discrete distribution", {
@@ -31,17 +36,95 @@ test_that("distribPlot guards against missing inputs", {
   expect_null(distribPlot(numArgs = 1, args = NULL, inputValue = 0))
 })
 
-test_that("CDF-tooltip branch builds and the bar carries a tooltip aesthetic", {
-  builds(distribPlot(func = pbinom, range = 0:5, args = c(5, 0.5), inputValue = 3,
-                     plotType = "Cumulative", mainLabel = "Cumulative Distribution Function"))
+test_that("CDF-tooltip branch builds and each bar carries its tooltip", {
+  p <- distribPlot(func = pbinom, range = 0:5, args = c(5, 0.5), inputValue = 3,
+                   plotType = "Cumulative", mainLabel = "Cumulative Distribution Function")
+  builds(p)
+  expect_match(p$data[[1]]$text[4], "ℙ(X ≤ 3) = 0.8125", fixed = TRUE)
+  expect_equal(p$layout$yaxis$title$text, "<b>Cumulative Probability</b>")
   p <- distribPlot(range = 0:5, args = c(5, 0.5), inputValue = 3, distribName = "Binomial")
-  expect_true("text" %in% names(p$mapping))   # tooltip text flows through to plotly
+  expect_match(p$data[[1]]$text[4], "ℙ(X = 3) = 0.3125", fixed = TRUE)
+  expect_equal(p$layout$title$text, "<b>Binomial Probability Mass Function</b>")
+  expect_equal(p$layout$yaxis$title$text, "<b>Probability</b>")
 })
 
-test_that("the qplot shim builds a bar chart and handles NULL fill", {
-  builds(qplot(factor(0:5), dbinom(0:5, 5, 0.5), xlab = "x", ylab = "Probability",
-               main = "Test\n", fill = 0:5 <= 2))
-  builds(qplot(factor(0:5), dbinom(0:5, 5, 0.5)))  # fill = NULL default
+test_that("distribPlot highlights only the bar at the input value", {
+  p <- distribPlot(range = 0:5, args = c(5, 0.5), inputValue = 3, distribName = "Binomial")
+  bars <- p$data[[1]]
+  expect_equal(bars$type, "bar")
+  expect_equal(as.character(bars$x), as.character(0:5))   # the bar's x is its value
+  expect_equal(as.character(bars$marker$color),
+               ifelse(0:5 == 3, prob_hl, prob_base))
+  expect_equal(p$layout$xaxis$type, "category")
+  expect_equal(p$layout$xaxis$tickangle, 0)
+})
+
+test_that("pmf_plot colors the bars in the region and handles a missing region", {
+  p <- pmf_plot(0:5, dbinom(0:5, 5, 0.5), xlab = "x", ylab = "Probability",
+                main = "Test", fill = 0:5 <= 2)
+  builds(p)
+  expect_equal(as.character(p$data[[1]]$marker$color), rep(c(prob_hl, prob_base), each = 3))
+  # every bar in the region
+  all_in <- pmf_plot(0:5, dbinom(0:5, 5, 0.5), fill = rep(TRUE, 6))
+  expect_true(all(all_in$data[[1]]$marker$color == prob_hl))
+  # fill = NULL default, and an NA in the region test: no highlight
+  none <- pmf_plot(0:5, dbinom(0:5, 5, 0.5))
+  builds(none)
+  expect_true(all(none$data[[1]]$marker$color == prob_base))
+  expect_equal(as.character(pmf_plot(0:1, c(0.5, 0.5), fill = c(NA, TRUE))$data[[1]]$marker$color),
+               c(prob_base, prob_hl))
+  # a region bound that has not arrived yet (zero-length fill): no plot
+  expect_null(pmf_plot(0:5, dbinom(0:5, 5, 0.5), fill = logical(0)))
+})
+
+test_that("a shaded density plot has the region, the curve, and a padded window", {
+  p <- normal_prob_area_plot(-1, 1, 0, 1)
+  expect_length(p$data, 2)                                   # one region + the curve
+  expect_equal(range(p$data[[1]]$x), c(-1, 1))
+  expect_equal(p$data[[1]]$fill, "tozeroy")
+  expect_equal(as.numeric(p$layout$xaxis$range), c(-4.4, 4.4))
+  expect_equal(as.numeric(p$layout$xaxis$tickvals), -4:4)
+  # the curve is sampled at 100 points, so its peak is just under dnorm(0)
+  expect_equal(as.numeric(p$layout$yaxis$range), c(-0.05, 1.05) * dnorm(0), tolerance = 1e-3)
+  tails <- normal_prob_area_plot(-1, 1, 0, 1, extreme = TRUE)
+  expect_length(tails$data, 3)                               # two tails + the curve
+  expect_equal(range(tails$data[[1]]$x), c(-4, -1))
+  expect_equal(range(tails$data[[2]]$x), c(1, 4))
+})
+
+test_that("an infinite density becomes a gap and stays out of the y-range", {
+  p <- chisq_prob_area_plot(0, 1, df = 1)                    # dchisq(0, 1) is Inf
+  curve <- p$data[[length(p$data)]]
+  expect_true(is.na(curve$y[1]))
+  expect_true(all(is.finite(as.numeric(p$layout$yaxis$range))))
+  builds(p)
+  # nothing finite to scale by: leave the y-axis to plotly.js
+  flat <- cont_area_plot(0, 1, function(x) rep(NaN, length(x)), c(0, 1), "No density")
+  expect_null(flat$layout$yaxis$range)
+})
+
+test_that("point masses add stems and widen the window", {
+  base <- cont_area_plot(0, 1, dexp, c(0, 5), "Custom Probability Density Function")
+  expect_identical(add_point_masses(base, data.frame(loc = numeric(0), prob = numeric(0)), c(0, 5)), base)
+  p <- add_point_masses(base, data.frame(loc = c(2, 7), prob = c(1.5, 0.2)), c(0, 5))
+  builds(p)
+  expect_length(p$data, length(base$data) + 2)               # stems + their heads
+  expect_equal(as.numeric(p$data[[length(p$data)]]$x), c(2, 7))
+  expect_gt(p$layout$xaxis$range[2], 7)                      # the mass at 7 is in view
+  expect_equal(as.numeric(p$layout$yaxis$range), c(-0.05, 1.05) * 1.5)   # tallest stem fits
+})
+
+test_that("finish_prob_plot applies the light and dark colors and the config", {
+  p <- distribPlot(range = 0:5, args = c(5, 0.5), inputValue = 3, distribName = "Binomial")
+  light <- finish_prob_plot(p); dark <- finish_prob_plot(p, dark = TRUE)
+  expect_equal(light$layout$paper_bgcolor, "white")
+  expect_equal(dark$layout$paper_bgcolor, "#1f2937")
+  expect_equal(dark$layout$title$font$color, "#f8fafc")
+  expect_equal(dark$layout$xaxis$tickfont$color, "#cbd5e1")
+  expect_equal(light$layout$dragmode, "select")
+  expect_false(light$config$displaylogo)
+  expect_true(light$config$responsive)
+  expect_identical(light$data, dark$data)
 })
 
 test_that("continuous density-area plots build (incl. extreme tails)", {

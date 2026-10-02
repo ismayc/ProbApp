@@ -6,9 +6,7 @@
 # these packages print on attach (matches the same wrapping in server.R).
 suppressMessages({
   library(shiny)
-  library(ggplot2)
   library(bslib)
-  library(plotly)
 })
 
 # Mirror global.R's webR detection here so ui.R is self-contained: the test
@@ -18,21 +16,13 @@ suppressMessages({
 is_webr <- identical(R.version[["arch"]], "wasm32")
 
 # Clean academic theme: Inter type, calm teal accent, light/dark capable.
-# local = FALSE links Inter from the Google Fonts CDN instead of downloading the
-# font files at theme-compile time. That download is unreliable under webR
-# (the shinylive/GitHub Pages build), and the CDN link works identically in the
-# server build too — so the same code serves both deployments.
-prob_theme <- bs_theme(
-  version = 5,
-  base_font    = font_google("Inter", local = FALSE),
-  heading_font = font_google("Inter", local = FALSE),
-  primary = "#0d9488",
-  # Links/accent text use a darker teal that meets WCAG AA (>=4.5:1) on white;
-  # the lighter primary is kept for UI components (buttons/radios), which only
-  # need 3:1. (Plot-bar palette contrast is revisited in the Phase 2 plot rework.)
-  "link-color" = "#0f766e",
-  "border-radius" = "0.6rem"
-)
+# The page uses the stock bslib theme, which ships precompiled, and the app's
+# own look is layered on top from www/theme.css (inlined at the end of the page
+# body). A customized bs_theme() would be compiled from Sass on every page
+# render instead, which costs about a second of startup in the shinylive / webR
+# build. The theme's settings live in tools/build-theme.R, which generates
+# www/theme.css.
+prob_theme <- bs_theme(version = 5)
 
 # UI is a function of `request` so Shiny can restore bookmarked state from the URL.
 function(request) page_sidebar(
@@ -231,10 +221,19 @@ function(request) page_sidebar(
   # --------------------------------------------------------------- Main area
   withMathJax(),
 
+  tags$head(
+    # Inter, linked from the Google Fonts CDN (www/theme.css sets it as the
+    # body and heading font).
+    tags$link(rel = "stylesheet",
+              href = "https://fonts.googleapis.com/css2?family=Inter&display=swap"),
+    # The plot's output binding, inlined so the page needs no extra request.
+    includeScript("www/prob-plot.js")
+  ),
+
   # Loading overlay: shown immediately (it ships in the initial HTML) and faded
   # out once Shiny finishes its first render, so people see a clean spinner
-  # instead of a half-styled page while the Inter font, MathJax, Plotly.js and
-  # the compiled theme load. `shiny:idle` fires after the first flush completes;
+  # instead of a half-styled page while the Inter font, MathJax and plotly.js
+  # load. `shiny:idle` fires after the first flush completes;
   # the 8s timeout is a safety net so the overlay can never get stuck.
   tags$head(tags$style(HTML("
     #app-loading {
@@ -376,7 +375,10 @@ function(request) page_sidebar(
     condition = "input.outType == 'PDF' || input.outType == 'CDF' || input.outType == 'Probability'",
     card(
       card_header("Plot"),
-      card_body(plotlyOutput("distribPlot", height = "460px"))
+      # Drawn by plotly.js through the "prob-plot" output binding in
+      # www/prob-plot.js; server.R fills it with renderProbPlot().
+      card_body(as_fill_item(div(id = "distribPlot", class = "prob-plot",
+                                 style = "width:100%; height:460px;")))
     )
   ),
 
@@ -396,5 +398,11 @@ function(request) page_sidebar(
         uiOutput("probCalc")
       )
     )
-  )
+  ),
+
+  # The app's theme (see prob_theme above), as overrides of the stock theme.
+  # Inlined here, at the end of the body, so it comes after every stylesheet in
+  # <head>, including the ones Shiny adds later for server-rendered inputs
+  # (selectize): with equal selectors the later rule wins.
+  includeCSS("www/theme.css")
 )

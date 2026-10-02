@@ -1,6 +1,6 @@
 # Expanded statistical audit: multiple parameter sets AND multiple x-values per
 # distribution, comparing the app's displayed numbers to independent base-R refs.
-suppressMessages({library(shiny); library(ggplot2); library(bslib)})
+suppressMessages({library(shiny); library(bslib)})
 source("server.R")
 
 strip <- function(x) paste(gsub("<[^>]+>", " ", as.character(x)), collapse = " ")

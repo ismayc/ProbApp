@@ -1,8 +1,7 @@
 # Coverage driver for server.R. Drives appServer across every distribution,
 # output type, probability type, the edge/colour branches, input validation,
 # and dark mode. The plot-BUILDING logic is exercised via the plotObj() reactive
-# (a plain ggplot); the renderGirafe wrapper renders an actual SVG only a few
-# times (rendering many SVGs under covr instrumentation is slow/unstable).
+# and the distribPlot output (a plain list sent to plotly.js as JSON).
 suppressWarnings(suppressMessages(library(testthat)))
 
 bp <- list(pBG=.5,p=.5,numBinTrials=15,a=1,b=6,numEvents=10,numTrials=5,favBalls=3,
@@ -198,29 +197,27 @@ testServer(appServer, {
 
 # ---- plot click / drag-select observers ------------------------------------
 testServer(appServer, {
-  # pretend the plot has rendered so event_data() reads the event inputs
-  session$userData$plotlyShinyEventIDs <- c("plotly_click-distribPlot", "plotly_selected-distribPlot")
   do.call(session$setInputs, c(list(distType="Discrete", distrib="bin", outType="PDF",
                                     percentile="pdf", probType="lowerTail"), bp, cfg$bin$x))
-  session$setInputs(`plotly_click-distribPlot` = '[{"x":7,"y":0.2}]')             # PDF -> xFixedPC
+  session$setInputs(distribPlot_click = list(x = "7"))                             # PDF -> xFixedPC
   session$setInputs(outType="CDF")
-  session$setInputs(`plotly_click-distribPlot` = '[{"x":5,"y":0.1}]')             # CDF -> xFixedL
+  session$setInputs(distribPlot_click = list(x = "5"))                             # CDF -> xFixedL
   session$setInputs(outType="Probability", probType="lowerTail")
-  session$setInputs(`plotly_click-distribPlot` = '[{"x":4}]')                     # lowerTail -> xFixedL
+  session$setInputs(distribPlot_click = list(x = "4"))                             # lowerTail -> xFixedL
   session$setInputs(probType="upperTail")
-  session$setInputs(`plotly_click-distribPlot` = '[{"x":9}]')                     # upperTail -> xFixedU
+  session$setInputs(distribPlot_click = list(x = "9"))                             # upperTail -> xFixedU
   session$setInputs(probType="between", x1=2, x2=6)
-  session$setInputs(`plotly_click-distribPlot` = '[{"x":3}]')                     # between -> nearer endpoint
-  session$setInputs(`plotly_selected-distribPlot` = '[{"x":2},{"x":6}]')          # drag -> x1/x2
+  session$setInputs(distribPlot_click = list(x = "3"))                             # between -> nearer endpoint
+  session$setInputs(distribPlot_selected = list(x = c("2", "3", "4", "5", "6")))   # drag -> x1/x2
   session$setInputs(outType="PDF", percentile="quant")
-  session$setInputs(`plotly_click-distribPlot` = '[{"x":5}]')                     # quant: no-op branch
+  session$setInputs(distribPlot_click = list(x = "5"))                             # quant: no-op branch
   # continuous + non-finite/empty guards
   session$setInputs(distType="Continuous", distrib="norm", outType="Probability", probType="extreme", x1=-1, x2=1)
-  session$setInputs(`plotly_selected-distribPlot` = '[{"x":-1.5},{"x":1.5}]')
-  session$setInputs(`plotly_click-distribPlot` = '[{"x":null}]')                  # non-finite guard
-  session$setInputs(`plotly_selected-distribPlot` = '[]')                         # empty-selection guard
-  session$setInputs(`plotly_click-distribPlot` = '[{"y":0.5}]')                   # ev$x NULL guard
+  session$setInputs(distribPlot_selected = list(x = c(-1.5, 1.5)))
+  session$setInputs(distribPlot_click = list(x = "n/a"))                           # non-finite guard
+  session$setInputs(distribPlot_selected = list(x = list()))                      # empty-selection guard
+  session$setInputs(distribPlot_click = list(y = 0.5))                             # ev$x NULL guard
   session$setInputs(distType="Discrete", distrib="bin", outType="Probability", probType="between", x1=2, x2=6)
-  session$setInputs(`plotly_click-distribPlot` = '[{"x":5}]')                     # click nearer upper bound -> x2
-  session$setInputs(`plotly_selected-distribPlot` = '[{"x":null}]')               # all-NA selection guard
+  session$setInputs(distribPlot_click = list(x = "5"))                             # click nearer upper bound -> x2
+  session$setInputs(distribPlot_selected = list(x = list("n/a")))                 # all-NA selection guard
 })

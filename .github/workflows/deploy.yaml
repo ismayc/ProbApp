@@ -52,7 +52,8 @@ jobs:
             # Deploy only the runtime app files (no tests, CI, renv, .Rprofile).
             rsconnect::deployApp(
               appName     = "ProbApp",
-              appFiles    = c("global.R", "ui.R", "server.R", "functions.R", "formulas.R"),
+              appFiles    = c("global.R", "ui.R", "server.R", "functions.R", "formulas.R",
+                              "www/prob-plot.js", "www/theme.css"),
               forceUpdate = TRUE
             )
           '

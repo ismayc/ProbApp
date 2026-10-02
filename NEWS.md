@@ -8,6 +8,37 @@ decade-old application; each subsequent minor version is one milestone of the
 
 ---
 
+## 0.11.0 — Faster startup (2026-10-02)
+
+### Changed
+- **The plot is drawn by plotly.js directly.** The plotting helpers now return
+  plain lists of plotly.js traces, and a small output binding
+  (`www/prob-plot.js`) draws them, so the app no longer loads the `plotly` and
+  `ggplot2` R packages. In the browser-only build those two packages pulled in
+  38 packages (about 49 MB) that were downloaded and installed on every first
+  visit. Measured on a local export with no network delay, the first chart
+  appears after about 8.6 s instead of 15.0 s, and a first visit downloads about
+  42 MB instead of 92 MB.
+- **The theme is precompiled.** The page uses the stock bslib theme, and the
+  app's own look (teal accent, Inter, rounded corners) is a generated override
+  stylesheet, `www/theme.css`, built by `tools/build-theme.R`. This removes a
+  Sass compile of about one second from every startup of the browser-only
+  build. The look is unchanged.
+- plotly.js is the "basic" bundle (bar and scatter traces only), about 0.36 MB
+  compressed instead of 1.1 MB.
+- Dragging on the plot now brushes a horizontal range, and a value set by
+  clicking or brushing a curve is kept to 4 significant digits.
+
+### Fixed
+- **Clicking a bar set the wrong value.** On discrete plots the click reported
+  the bar's position (1, 2, 3, …) and not its value, so clicking the bar for 7
+  on a binomial plot entered 8.
+- **Brushing a continuous plot did nothing.** A brush only picked up points
+  inside the box, and a curve has none to select. The brush now uses the
+  x-range that was dragged.
+- Quantile plots where the quantile fell one short of the last bar drew the
+  highlight colors swapped.
+
 ## 0.10.0 — Mobile-friendly + browser-only (shinylive) deployment (2026-06-04)
 
 ### Added

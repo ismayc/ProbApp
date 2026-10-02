@@ -3,7 +3,6 @@
 # (or interactively: testthat::test_dir("tests/testthat"))
 library(testthat)
 library(shiny)
-library(ggplot2)
 library(bslib)
 
 testthat::test_dir("tests/testthat", stop_on_failure = TRUE)

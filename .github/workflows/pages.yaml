@@ -46,9 +46,12 @@ jobs:
       - name: Stage runtime app files
         # Only the app's runtime files are exported — never renv/, .Rprofile
         # (which sources renv/activate.R and would break webR), tests/, or CI.
+        # www/ holds the plot's output binding and the theme overrides, which
+        # ui.R inlines into the page.
         run: |
           mkdir -p _app
           cp global.R ui.R server.R functions.R formulas.R _app/
+          cp -R www _app/
 
       - name: Export to a static shinylive site
         # template_params$title sets the host page's <title> (the browser-tab

@@ -5,7 +5,6 @@
 # paths), so the working directory is set to the project root first.
 
 library(shiny)
-library(ggplot2)
 library(bslib)
 
 app_root <- normalizePath(file.path("..", ".."))

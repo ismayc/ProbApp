@@ -5,11 +5,13 @@
 # Strip HTML tags so rendered MathJax text can be matched.
 strip <- function(x) paste(gsub("<[^>]+>", " ", as.character(x)), collapse = " ")
 
-# A rendered plot should be non-NULL. Rendering some distributions emits a
-# benign ggplot "removed rows ... outside the scale range" clipping warning
-# (the app sets explicit scale_x_continuous() limits); suppress only that here.
-# Errors are NOT suppressed, so a broken plot still fails the test.
-plot_ok <- function(p) expect_false(is.null(suppressWarnings(p)))
+# A rendered plot is the list(data, layout, config) sent to plotly.js, with at
+# least one trace, and it must survive Shiny's JSON serialization.
+plot_ok <- function(p) {
+  expect_named(p, c("data", "layout", "config"))
+  expect_gt(length(p$data), 0)
+  expect_no_error(shiny:::toJSON(p))
+}
 
 # ---- The dynamic control renderers ----------------------------------------
 test_that("distName, percentile and probTypeSelect render per selection", {
@@ -117,12 +119,17 @@ test_that("between/extreme handle x2 <= x1 (discrete and continuous)", {
   })
 })
 
-test_that("quantile colour branch flips when the whole range is highlighted", {
+test_that("quantile plots highlight the bars up to the quantile", {
   testServer(appServer, {
-    # quantile = 1 makes qbinom == n, exercising the alternate fill ordering
     do.call(session$setInputs, inputs_for("bin"))
+    session$setInputs(outType = "PDF", percentile = "quant", quantile = 0.5)
+    bars <- output$distribPlot$data[[1]]
+    expect_equal(as.character(bars$marker$color),
+                 ifelse(0:15 <= qbinom(0.5, 15, 0.5), prob_hl, prob_base))
+    # quantile = 1 makes qbinom == n: the whole range is highlighted
     session$setInputs(outType = "PDF", percentile = "quant", quantile = 1)
     plot_ok(output$distribPlot)
+    expect_true(all(output$distribPlot$data[[1]]$marker$color == prob_hl))
     # discrete uniform and poisson alternate branches too
     do.call(session$setInputs, inputs_for("dunif"))
     session$setInputs(outType = "PDF", percentile = "quant", quantile = 1)

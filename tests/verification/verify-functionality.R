@@ -1,5 +1,5 @@
 # Functionality / reactive-routing verification.
-suppressMessages({library(shiny); library(ggplot2); library(bslib); library(plotly)})
+suppressMessages({library(shiny); library(bslib)})
 source("server.R")
 strip <- function(x) paste(gsub("<[^>]+>", " ", as.character(x)), collapse = " ")
 # Safe read: a req()-gated/empty output returns "" instead of raising.
@@ -58,11 +58,11 @@ testServer(appServer, {
 # (4) Discrete bars carry the blackboard-P tooltip; (5) dark mode restyles plot
 testServer(appServer, {
   do.call(session$setInputs, c(list(distType="Discrete", distrib="bin", outType="PDF", percentile="pdf", probType="lowerTail", dark_mode="light"), bp))
-  j_light <- tryCatch(as.character(output$distribPlot), error = function(e) "")
+  j_light <- tryCatch(as.character(shiny:::toJSON(output$distribPlot)), error = function(e) "")
   ok("tooltip uses blackboard P",  grepl("ℙ", j_light, fixed=TRUE) && grepl("0.1964", j_light))  # dbinom(7,15,.5) tooltip
   session$setInputs(dark_mode="dark")
-  j_dark <- tryCatch(as.character(output$distribPlot), error = function(e) "")
-  ok("plot renders (non-trivial SVG)", nchar(j_light) > 1000 && nchar(j_dark) > 1000)
+  j_dark <- tryCatch(as.character(shiny:::toJSON(output$distribPlot)), error = function(e) "")
+  ok("plot renders (non-trivial JSON)", nchar(j_light) > 1000 && nchar(j_dark) > 1000)
   ok("dark mode re-styles the plot",   j_dark != j_light)   # overlay changes the render
 })
 

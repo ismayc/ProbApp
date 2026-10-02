@@ -7,15 +7,22 @@
 
 suppressMessages({
   library(shiny)
-  library(ggplot2)
   library(bslib)
-  library(plotly)
 })
 
 source("functions.R")
 source("formulas.R")
 
 discreteDists <- c("bern", "bin", "dunif", "geom", "hgeom", "nbin", "poi")
+
+# Render function for the plot output: the expression returns a plot as
+# list(data, layout, config) (see finish_prob_plot() in functions.R), Shiny sends
+# it to the browser as JSON, and the output binding in www/prob-plot.js draws it
+# with plotly.js.
+renderProbPlot <- function(expr, env = parent.frame(), quoted = FALSE) {
+  installExprFunction(expr, "func", env, quoted, label = "renderProbPlot")
+  createRenderFunction(func, function(value, session, name, ...) value)
+}
 
 # Called by Shiny when "Share link" is clicked: write the encoded state into the
 # address bar (so the link can be copied/shared directly) and confirm it. Kept
@@ -38,22 +45,9 @@ appServer <- function(input, output, session) {
 
   # Keep transient / preference / event inputs out of the bookmark URL.
   setBookmarkExclude(c("reset", "about", "dark_mode",
-                       "plotly_click-distribPlot", "plotly_selected-distribPlot"))
+                       "distribPlot_click", "distribPlot_selected"))
   # On "Share link", push the encoded state into the address bar (see helper).
   onBookmarked(applyBookmarkUrl)
-
-  # Pre-register the plot's plotly event IDs. plotly only records these when the
-  # widget actually renders (register_plot_events(), via prepareWidget), so an
-  # event_data() call evaluated before the first render — the startup flush, and
-  # every flush under testServer (which never renders the output) — fires a
-  # deferred onFlushed() "event not registered" warning that inline
-  # suppressWarnings() cannot reach. Seeding the registry up front makes the
-  # check pass everywhere; renderPlotly's own event_register() still wires the
-  # client-side events (the unique() in register_plot_events dedupes).
-  session$userData$plotlyShinyEventIDs <- unique(c(
-    session$userData$plotlyShinyEventIDs,
-    "plotly_click-distribPlot", "plotly_selected-distribPlot"
-  ))
 
   # Effective R-expression for the custom density: the density field is read as
   # LaTeX (and converted) when the input mode is "latex", otherwise verbatim.
@@ -374,7 +368,7 @@ appServer <- function(input, output, session) {
     }
   })
   
-  # Build the ggplot object (rendered interactively below via renderGirafe).
+  # Build the plot (a prob_plot list; rendered below via renderProbPlot).
   plotObj <- reactive({
     #To allow for the parameters to fill before calculating/plotting
     if(is.null(input$distrib)) return ()
@@ -463,127 +457,74 @@ appServer <- function(input, output, session) {
     #Plot PDF function with shading of appropriate quantile value
     else if(input$outType == "PDF" && input$percentile != "pdf" && !is.null(input$percentile)){
       switch(input$distrib,
-             "bern" = qplot(factor(0:1), 
+             "bern" = pmf_plot(0:1, 
                             dbinom(0:1, 1, input$pBG),
                             xlab = "Number of Successes", 
                             ylab = "Probability", 
-                            main = "Bernoulli Probability Mass Function\n",
-                            geom = "bar", 
-                            stat = "identity",
+                            main = "Bernoulli Probability Mass Function",
                             fill = 0:1 <= if(!is.null(input$quantile) && !is.null(input$pBG))
                               qbinom(input$quantile, 1, input$pBG)
                             else {-1}
-             )
-             + scale_fill_manual(values= if(!is.null(input$quantile) && !is.null(input$pBG) && qbinom(input$quantile, 1, input$pBG) == 1) c(prob_hl, prob_base)
-                                 else c(prob_base, prob_hl)
-             )
-             + guides(fill = "none") + theme_prob(),
-             "bin" = qplot(factor(0:input$numBinTrials), 
+             ),
+             "bin" = pmf_plot(0:input$numBinTrials, 
                            dbinom(0:input$numBinTrials, input$numBinTrials, input$p),
                            xlab = "Number of Successes", 
                            ylab = "Probability", 
-                           main = "Binomial Probability Mass Function\n",
-                           geom = "bar", 
-                           stat = "identity",
+                           main = "Binomial Probability Mass Function",
                            fill = 0:input$numBinTrials <= if(!is.null(input$quantile) && !is.null(input$numBinTrials) && !is.null(input$p))
                              qbinom(input$quantile, input$numBinTrials, input$p)
                            else {-1}
-             )
-             #To get the default shading colors to black with green
-             + scale_fill_manual(values= 
-                                   if (!is.null(input$quantile) && !is.null(input$numBinTrials) && !is.null(input$p) && 
-                                         qbinom(input$quantile, input$numBinTrials, input$p) == input$numBinTrials){c(prob_hl, prob_base)}
-                                 else{c(prob_base, prob_hl)})
-             + guides(fill = "none") + theme_prob(), 
-             "dunif" = qplot(factor(input$a:input$b), 
+             ), 
+             "dunif" = pmf_plot(input$a:input$b, 
                              dunifdisc(input$a:input$b, input$a, input$b),
                              xlab = "Number of Successes", 
                              ylab = "Probability", 
-                             main = "Discrete Uniform Probability Mass Function\n",
-                             geom = "bar", 
-                             stat = "identity",
+                             main = "Discrete Uniform Probability Mass Function",
                              fill =  input$a:input$b <= if(!is.null(input$quantile) && !is.null(input$a) && !is.null(input$b))
                                qunifdisc(input$quantile, input$a, input$b)
                              else {-1}
-             )
-             #To get the default shading colors to black with green
-             + scale_fill_manual(values= 
-                                   if (!is.null(input$quantile) && !is.null(input$a) && !is.null(input$b) &&
-                                         qunifdisc(input$quantile, input$a, input$b) == input$b){c(prob_hl, prob_base)}
-                                 else{c(prob_base, prob_hl)})
-             + guides(fill = "none") + theme_prob(),
-             "geom" = qplot(factor(1:ceiling(qgeom(0.9999, prob=input$pBG)+1)),  ##### How large to set the bounds?
+             ),
+             "geom" = pmf_plot(1:ceiling(qgeom(0.9999, prob=input$pBG)+1),  ##### How large to set the bounds?
                             dgeom(1:ceiling(qgeom(0.9999, prob=input$pBG)+1), input$pBG),
                             xlab = "Number of Trials", 
                             ylab = "Probability", 
-                            main = "Geometric Probability Mass Function\n",
-                            geom = "bar", 
-                            stat = "identity",
+                            main = "Geometric Probability Mass Function",
                             fill = 1:ceiling(qgeom(0.9999, prob=input$pBG)+1) <= if(!is.null(input$quantile) && !is.null(input$pBG))
                               qgeom(as.numeric(input$quantile), as.numeric(input$pBG)) + 1
                             else {-1}   
-             )
-             #To get the default shading colors to black with green
-             + scale_fill_manual(values= 
-                                   if (!is.null(input$quantile) && !is.null(input$pBG) && 
-                                         ceiling(qgeom(0.9999, prob=input$pBG)) <= qgeom(as.numeric(input$quantile), as.numeric(input$pBG)) + 1){c(prob_hl, prob_base)}
-                                 else{c(prob_base, prob_hl)})
-             + guides(fill = "none") + theme_prob(), 
-             "hgeom" = qplot(factor(max(0, input$numTrials+input$favBalls-input$numEvents):min(input$favBalls, input$numTrials)), 
+             ), 
+             "hgeom" = pmf_plot(max(0, input$numTrials+input$favBalls-input$numEvents):min(input$favBalls, input$numTrials), 
                              dhyper(max(0, input$numTrials+input$favBalls-input$numEvents):min(input$favBalls, input$numTrials), 
                                     input$favBalls, (input$numEvents - input$favBalls), input$numTrials),
                              xlab = "Number of Successes", 
                              ylab = "Probability", 
-                             main = "Hypergeometric Probability Mass Function\n",
-                             geom = "bar", 
-                             stat = "identity",
+                             main = "Hypergeometric Probability Mass Function",
                              fill = max(0, input$numTrials+input$favBalls-input$numEvents):min(input$favBalls, input$numTrials) 
                              <= if(!is.null(input$quantile) && !is.null(input$favBalls) && !is.null(input$numEvents) && !is.null(input$numTrials))
                                qhyper(as.numeric(input$quantile), as.numeric(input$favBalls), 
                                       (as.numeric(input$numEvents) - as.numeric(input$favBalls)), 
                                       as.numeric(input$numTrials))
                              else {-1}
-             )
-             + scale_fill_manual(values= 
-                                   if ((!is.null(input$quantile) && !is.null(input$favBalls) && !is.null(input$numEvents) && !is.null(input$numTrials)) &&
-                                         qhyper(as.numeric(input$quantile), as.numeric(input$favBalls), (as.numeric(input$numEvents) - as.numeric(input$favBalls)), 
-                                                as.numeric(input$numTrials)) == input$favBalls){c(prob_hl, prob_base)}
-                                 else{c(prob_base, prob_hl)})
-             + guides(fill = "none") + theme_prob(), 
-             "nbin" = qplot(factor(input$numSuccesses:ceiling(qnbinom(0.9999, size=input$numSuccesses, prob=input$pNeg))), 
+             ), 
+             "nbin" = pmf_plot(input$numSuccesses:ceiling(qnbinom(0.9999, size=input$numSuccesses, prob=input$pNeg)), 
                             dnbinom(input$numSuccesses:ceiling(qnbinom(0.9999, size=input$numSuccesses, prob=input$pNeg)), input$numSuccesses, input$pNeg),
                             xlab = "Number of Successes", 
                             ylab = "Probability", 
-                            main = "Negative Binomial Probability Mass Function\n",
-                            geom = "bar", 
-                            stat = "identity",
+                            main = "Negative Binomial Probability Mass Function",
                             fill = input$numSuccesses:ceiling(qnbinom(0.9999, size=input$numSuccesses, prob=input$pNeg)) <= if(!is.null(input$quantile) && !is.null(input$numSuccesses) && !is.null(input$pNeg))
                               qnbinom(as.numeric(input$quantile), 
                                       as.numeric(input$numSuccesses), as.numeric(input$pNeg)) + as.numeric(input$numSuccesses)
                             else {-1}
-             )
-             + scale_fill_manual(values=  if(!is.null(input$quantile) && !is.null(input$numSuccesses) && !is.null(input$pNeg) &&
-                                               ceiling(qnbinom(0.9999, size=input$numSuccesses, prob=input$pNeg)) <= qnbinom(as.numeric(input$quantile), 
-                                                                                                                             as.numeric(input$numSuccesses), 
-                                                                                                                             as.numeric(input$pNeg)) + as.numeric(input$numSuccesses)){c(prob_hl, prob_base)}
-                                 else{c(prob_base, prob_hl)})
-             + guides(fill = "none") + theme_prob(), 
-             "poi" = qplot(factor(0:ceiling(qpois(0.9999, input$lambda))),
+             ), 
+             "poi" = pmf_plot(0:ceiling(qpois(0.9999, input$lambda)),
                            dpois(0:ceiling(qpois(0.9999, input$lambda)), input$lambda),
                            xlab = "Number of Occurrences", 
                            ylab = "Probability", 
-                           main = "Poisson Probability Mass Function\n",
-                           geom = "bar", 
-                           stat = "identity",
+                           main = "Poisson Probability Mass Function",
                            fill = 0:ceiling(qpois(0.9999, input$lambda)) <= if(!is.null(input$quantile) && !is.null(input$lambda))
                              qpois(input$quantile, input$lambda)
                            else {-1}
-             )
-             #To get the default shading colors to black with green
-             + scale_fill_manual(values= if(!is.null(input$quantile) && !is.null(input$lambda) && 
-                                              ceiling(qpois(0.9999, input$lambda)) <= qpois(input$quantile, input$lambda)){c(prob_hl, prob_base)}
-                                 else{c(prob_base, prob_hl)})
-             + guides(fill = "none") + theme_prob(),
+             ),
              
              #Continuous
              "beta" = beta_prob_area_plot(0, qbeta(as.numeric(input$quantile), shape1 = as.numeric(input$alpha), shape2 = as.numeric(input$beta)),
@@ -709,44 +650,23 @@ appServer <- function(input, output, session) {
       #  if((input$probType == "lowerTail" || input$probType == "upperTail") && is.null(input$xFixedL) && is.null(input$xFixedU)) return ()
       #  if((input$probType == "between" || input$probType == "extreme") && (is.null(input$x1) || is.null(input$x2))) return ()
       switch(input$distrib,
-             "bern" = qplot(factor(0:1), 
+             "bern" = pmf_plot(0:1, 
                             dbinom(0:1, 1, input$pBG),
                             xlab = "Number of Successes", 
                             ylab = "Probability", 
-                            main = "Bernoulli Probability Mass Function\n",
-                            geom = "bar", 
-                            stat = "identity",
+                            main = "Bernoulli Probability Mass Function",
                             fill = switch(input$probType,
                                           "between" = 0:1 >= input$x1 & 0:1 <= input$x2,
                                           "lowerTail" = 0:1 <= input$xFixedL,
                                           "upperTail" = 0:1 >= input$xFixedU,
                                           "extreme" = 0:1 <= input$x1 | 0:1 >= input$x2, 
                             )
-             )
-             + scale_fill_manual(values=
-                                   if(input$probType == "between" && pbinom(input$x2, 1, input$pBG) - pbinom(input$x1 - 1, 1, input$pBG) == 1){
-                                     c(prob_hl, prob_base)
-                                   }
-                                 else if(input$probType == "lowerTail" && pbinom(input$xFixedL, 1, input$pBG) == 1){
-                                   c(prob_hl, prob_base)
-                                 }
-                                 else if (input$probType == "upperTail" && 1 - pbinom(input$xFixedU - 1, 1, input$pBG) == 1){
-                                   c(prob_hl, prob_base)
-                                 }
-                                 else if(input$probType == "extreme" && 1 - pbinom(input$x2-1, size = 1, input$pBG) + pbinom(input$x1, 1, input$pBG) == 1){
-                                   c(prob_hl, prob_base)
-                                 }
-                                 else
-                                   c(prob_base, prob_hl)
-             )
-             + guides(fill = "none") + theme_prob(),
-             "bin" = qplot(factor(0:input$numBinTrials), 
+             ),
+             "bin" = pmf_plot(0:input$numBinTrials, 
                            dbinom(0:input$numBinTrials, input$numBinTrials, input$p),
                            xlab = "Number of Successes", 
                            ylab = "Probability", 
-                           main = "Binomial Probability Mass Function\n",
-                           geom= "bar", 
-                           stat= "identity",
+                           main = "Binomial Probability Mass Function",
                            fill = if(!(is.null(input$xFixedL) || is.null(input$xFixedU))){
                              switch(input$probType,
                                     "between" = 0:input$numBinTrials >= input$x1 & 0:input$numBinTrials <= input$x2,
@@ -755,33 +675,12 @@ appServer <- function(input, output, session) {
                                     "extreme" = 0:input$numBinTrials <= input$x1 | 0:input$numBinTrials >= input$x2, 
                              )
                            }
-             )
-             #To get the default shading colors to black with green
-             + scale_fill_manual(values= if(input$probType == "extreme"){ 
-               if(input$x2 - input$x1 > 1){c(prob_base, prob_hl)} 
-               else{c(prob_hl,prob_base)}}
-               else if (input$probType == "lowerTail"){
-                 if (pbinom(input$xFixedL, input$numBinTrials, input$p) == 1){c(prob_hl, prob_base)}
-                 else{c(prob_base,prob_hl)}}
-               else if (input$probType == "upperTail"){
-                 if ( pbinom(input$xFixedU - 1, input$numBinTrials, input$p, lower.tail = FALSE) == 1){c(prob_hl, prob_base)}
-                 else{c(prob_base, prob_hl)}}
-               else if (input$probType == "between"){
-                 if (pbinom(as.numeric(input$x2), size = as.numeric(input$numBinTrials), 
-                            prob = as.numeric(input$p)) 
-                     - pbinom(as.numeric(input$x1)-1, size = as.numeric(input$numBinTrials), 
-                              prob = as.numeric(input$p)) == 1)
-                 {c(prob_hl, prob_base)}
-                 else{c(prob_base, prob_hl)}}
-               )
-             + guides(fill = "none") + theme_prob(), 
-             "dunif" = qplot(factor(input$a:input$b), 
+             ), 
+             "dunif" = pmf_plot(input$a:input$b, 
                              dunifdisc(input$a:input$b, input$a, input$b),
                              xlab = "Number of Successes", 
                              ylab = "Probability", 
-                             main = "Discrete Uniform Probability Mass Function\n",
-                             geom = "bar", 
-                             stat = "identity",
+                             main = "Discrete Uniform Probability Mass Function",
                              fill = if(!(is.null(input$xFixedL) || is.null(input$xFixedU))){
                                switch(input$probType,
                                       "between" = input$a:input$b >= input$x1 & input$a:input$b <= input$x2,
@@ -790,31 +689,12 @@ appServer <- function(input, output, session) {
                                       "extreme" = input$a:input$b <= input$x1 | input$a:input$b >= input$x2
                                ) 
                              }
-             )
-             #To get the default shading colors to black with green
-             + scale_fill_manual(values= if(input$probType == "extreme"){ 
-               if(input$x2 - input$x1 > 1){c(prob_base, prob_hl)} 
-               else{c(prob_hl,prob_base)}}
-               else if (input$probType == "lowerTail"){
-                 if (punifdisc(input$xFixedL, input$a, input$b) == 1){c(prob_hl, prob_base)}
-                 else{c(prob_base,prob_hl)}}
-               else if (input$probType == "upperTail"){
-                 if (punifdisc(input$xFixedU - 1, input$a, input$b) == 0){c(prob_hl, prob_base)}
-                 else{c(prob_base, prob_hl)}}
-               else if (input$probType == "between"){
-                 if (punifdisc(as.numeric(input$x2), as.numeric(input$a), as.numeric(input$b)) 
-                     - punifdisc(as.numeric(input$x1)-1, as.numeric(input$a), as.numeric(input$b)) == 1)
-                 {c(prob_hl, prob_base)}
-                 else{c(prob_base, prob_hl)}}
-               )
-             + guides(fill = "none") + theme_prob(),
-             "geom" = qplot(factor(1:ceiling(qgeom(0.9999, prob=input$pBG))),
+             ),
+             "geom" = pmf_plot(1:ceiling(qgeom(0.9999, prob=input$pBG)),
                             dgeom(1:ceiling(qgeom(0.9999, prob=input$pBG))-1, prob=input$pBG),
                             xlab = "Number of Trials", 
                             ylab = "Probability", 
-                            main = "Geometric Probability Mass Function\n",
-                            geom = "bar", 
-                            stat = "identity",
+                            main = "Geometric Probability Mass Function",
                             fill = if(!(is.null(input$xFixedL) || is.null(input$xFixedU))){
                               switch(input$probType,
                                      "between" = 1:ceiling(qgeom(0.9999, prob=input$pBG)) >= input$x1 & 1:ceiling(qgeom(0.9999, prob=input$pBG)) <= input$x2,
@@ -824,31 +704,13 @@ appServer <- function(input, output, session) {
                               )
                             }
              )
-             
-             #To get the default shading colors to black with green
-             + scale_fill_manual(values= if(input$probType == "extreme"){ 
-               if(input$x2 - input$x1 > 1){c(prob_base, prob_hl)} 
-               else{c(prob_hl,prob_base)}}
-               else if (input$probType == "lowerTail"){
-                 if (ceiling(4*1/input$p) <= input$xFixedL){c(prob_hl, prob_base)}
-                 else{c(prob_base,prob_hl)}}
-               else if (input$probType == "upperTail"){
-                 if ( 1 >= input$xFixedU){c(prob_hl, prob_base)}
-                 else{c(prob_base, prob_hl)}}
-               else if (input$probType == "between"){
-                 if (input$x1 <= 1 && input$x2 >= ceiling(4*1/input$p))
-                   c(prob_hl, prob_base)
-                 else{c(prob_base, prob_hl)}}
-               )
-             + guides(fill = "none") + theme_prob(), 
-             "hgeom" = qplot(factor(max(0, input$numTrials+input$favBalls-input$numEvents):min(input$favBalls, input$numTrials)), 
+             , 
+             "hgeom" = pmf_plot(max(0, input$numTrials+input$favBalls-input$numEvents):min(input$favBalls, input$numTrials), 
                              dhyper(max(0, input$numTrials+input$favBalls-input$numEvents):min(input$favBalls, input$numTrials), 
                                     input$favBalls, (input$numEvents - input$favBalls), input$numTrials),
                              xlab = "Number of Successes", 
                              ylab = "Probability", 
-                             main = "Hypergeometric Probability Mass Function\n",
-                             geom = "bar", 
-                             stat = "identity",
+                             main = "Hypergeometric Probability Mass Function",
                              fill = if(!(is.null(input$xFixedL) || is.null(input$xFixedU))){
                                switch(input$probType,
                                       "between" = max(0, input$numTrials+input$favBalls-input$numEvents):min(input$favBalls, input$numTrials) >= input$x1 & max(0, input$numTrials+input$favBalls-input$numEvents):min(input$favBalls, input$numTrials) <= input$x2,
@@ -857,32 +719,12 @@ appServer <- function(input, output, session) {
                                       "extreme" = max(0, input$numTrials+input$favBalls-input$numEvents):min(input$favBalls, input$numTrials) <= input$x1 | max(0, input$numTrials+input$favBalls-input$numEvents):min(input$favBalls, input$numTrials) >= input$x2, 
                                )
                              }
-             )
-             + scale_fill_manual(values= if(input$probType == "extreme"){ 
-               if(input$x2 - input$x1 > 1){c(prob_base, prob_hl)} 
-               else{c(prob_hl,prob_base)}}
-               else if (input$probType == "lowerTail"){
-                 if (phyper(input$xFixedL, input$favBalls, (input$numEvents - input$favBalls), input$numTrials) == 1){c(prob_hl, prob_base)}
-                 else{c(prob_base,prob_hl)}}
-               else if (input$probType == "upperTail"){
-                 if (phyper(input$xFixedU - 1, input$favBalls, (input$numEvents - input$favBalls), input$numTrials) == 0){c(prob_hl, prob_base)}
-                 else{c(prob_base, prob_hl)}}
-               else if (input$probType == "between"){
-                 if (phyper(as.numeric(input$x2), as.numeric(input$favBalls), 
-                            as.numeric((input$numEvents - input$favBalls)), as.numeric(input$numTrials)) 
-                     - phyper(as.numeric(input$x1) - 1, as.numeric(input$favBalls), 
-                              as.numeric((input$numEvents - input$favBalls)), as.numeric(input$numTrials)) == 1)
-                 {c(prob_hl, prob_base)}
-                 else{c(prob_base, prob_hl)}}
-               )
-             + guides(fill = "none") + theme_prob(), 
-             "nbin" = qplot(factor(input$numSuccesses:ceiling(qnbinom(0.9999, size = input$numSuccesses, prob = input$pNeg))), 
+             ), 
+             "nbin" = pmf_plot(input$numSuccesses:ceiling(qnbinom(0.9999, size = input$numSuccesses, prob = input$pNeg)), 
                             dnbinom(input$numSuccesses:ceiling(qnbinom(0.9999, size = input$numSuccesses, prob = input$pNeg)), size = input$numSuccesses, prob = input$pNeg),
                             xlab = "Number of Successes", 
                             ylab = "Probability", 
-                            main = "Negative Binomial Probability Mass Function\n",
-                            geom = "bar", 
-                            stat = "identity",
+                            main = "Negative Binomial Probability Mass Function",
                             fill = if(!(is.null(input$xFixedL) || is.null(input$xFixedU))){
                               switch(input$probType,
                                      "between" = input$numSuccesses:ceiling(qnbinom(0.9999, size = input$numSuccesses, prob = input$pNeg)) >= input$x1 & input$numSuccesses:ceiling(qnbinom(0.9999, size = input$numSuccesses, prob = input$pNeg)) <= input$x2,
@@ -892,29 +734,12 @@ appServer <- function(input, output, session) {
                                      #NULL
                               )
                             }
-             )
-             + scale_fill_manual(values= if(input$probType == "extreme"){ 
-               if(input$x2 - input$x1 > 1){c(prob_base, prob_hl)} 
-               else{c(prob_hl,prob_base)}}
-               else if (input$probType == "lowerTail"){
-                 if ( ceiling(7*1/input$pNeg) <= input$xFixedL){c(prob_hl, prob_base)}
-                 else{c(prob_base,prob_hl)}}
-               else if (input$probType == "upperTail"){
-                 if ( pnbinom(input$xFixedU - 1, input$numSuccesses, input$pNeg, lower.tail = FALSE) == 1){c(prob_hl, prob_base)}
-                 else{c(prob_base, prob_hl)}}
-               else if (input$probType == "between"){
-                 if (input$x1 <= input$numSuccesses && input$x2 >= ceiling(qnbinom(0.9999, size = input$numSuccesses, prob = input$pNeg)))
-                 {c(prob_hl, prob_base)}
-                 else{c(prob_base, prob_hl)}}
-               )
-             + guides(fill = "none") + theme_prob(), 
-             "poi" = qplot(factor(0:ceiling(qpois(0.9999, input$lambda))),
+             ), 
+             "poi" = pmf_plot(0:ceiling(qpois(0.9999, input$lambda)),
                            dpois(0:ceiling(qpois(0.9999, input$lambda)), input$lambda),
                            xlab = "Number of Occurrences", 
                            ylab = "Probability", 
-                           main = "Poisson Probability Mass Function\n",
-                           geom = "bar", 
-                           stat = "identity",
+                           main = "Poisson Probability Mass Function",
                            fill = if(!(is.null(input$xFixedL) || is.null(input$xFixedU))){
                              switch(input$probType,
                                     "between" = 0:ceiling(qpois(0.9999, input$lambda)) >= input$x1 & 0:ceiling(qpois(0.9999, input$lambda)) <= input$x2,
@@ -924,23 +749,7 @@ appServer <- function(input, output, session) {
                                     #NULL
                              )
                            }
-             )
-             #To get the default shading colors to black with green
-             + scale_fill_manual(values= if(input$probType == "extreme"){ 
-               if(input$x2 - input$x1 > 1){c(prob_base, prob_hl)} 
-               else{c(prob_hl,prob_base)}}
-               else if (input$probType == "lowerTail"){
-                 if (ceiling(4*input$lambda) <= input$xFixedL){c(prob_hl, prob_base)}
-                 else{c(prob_base,prob_hl)}}
-               else if (input$probType == "upperTail"){
-                 if ( ppois(input$xFixedU - 1, input$lambda, lower.tail = FALSE) == 1){c(prob_hl, prob_base)}
-                 else{c(prob_base, prob_hl)}}
-               else if (input$probType == "between"){
-                 if ( input$x1 <= 0 && input$x2 >= ceiling(qpois(0.9999, input$lambda)))
-                 {c(prob_hl, prob_base)}
-                 else{c(prob_base, prob_hl)}}
-               )
-             + guides(fill = "none") + theme_prob(),
+             ),
              
              #Continuous
              "norm" = switch(input$probType,
@@ -1056,65 +865,34 @@ appServer <- function(input, output, session) {
     }
   })
 
-  # Render the plot interactively with plotly: hover tooltips (discrete bars show
-  # the probability; continuous curves show x and the density/CDF value), a
+  # Render the plot interactively with plotly.js: hover tooltips (discrete bars
+  # show the probability; continuous curves show x and the density/CDF value), a
   # download-PNG button, dark-mode theming, and click/drag-to-select (handled by
-  # the observers below). source = "distribPlot" ties the click/select events.
-  output$distribPlot <- renderPlotly({
+  # the observers below, fed by the events www/prob-plot.js sends).
+  output$distribPlot <- renderProbPlot({
     req(length(inputErrors()) == 0)   # blank the plot when an input is invalid
     p <- plotObj()
     req(!is.null(p))
     # Mixed custom distributions: overlay stems (height = probability) for the
-    # point masses on the density / probability plots, widening the x-window so
-    # masses outside the continuous support are still visible. (The CDF plot
-    # already shows the jumps via the mixed CDF.)
+    # point masses on the density / probability plots. (The CDF plot already
+    # shows the jumps via the mixed CDF.)
     if (identical(input$distrib, "custom") && input$outType %in% c("PDF", "Probability")) {
-      s <- contSpec("custom"); at <- s$atoms
-      if (nrow(at) > 0) {
-        p <- p +
-          geom_segment(data = at, aes(x = loc, xend = loc, y = 0, yend = prob),
-                       color = prob_hl, linewidth = 1) +
-          geom_point(data = at, aes(x = loc, y = prob), color = prob_hl, size = 2.5)
-        lims <- range(c(s$lo, s$hi, at$loc)); pad <- 0.04 * diff(lims)   # lo < hi => diff > 0
-        # replaces the helper's coord_cartesian (benign "already present" note)
-        p <- suppressMessages(p + coord_cartesian(xlim = c(lims[1] - pad, lims[2] + pad)))
-      }
+      s <- contSpec("custom")
+      p <- add_point_masses(p, s$atoms, c(s$lo, s$hi))
     }
-    dark <- isTRUE(input$dark_mode == "dark")
-    tip  <- if (input$distrib %in% discreteDists) "text" else c("x", "y")
-    bg   <- if (dark) "#1f2937" else "white"
-    grid <- if (dark) "#475569" else "#e5e7eb"
-    fg   <- if (dark) "#e5e7eb" else "#1f2937"
-    # light title/axis text in dark mode (ggplotly carries the ggplot theme's
-    # text colours through, so set them on the ggplot before converting)
-    if (dark) p <- p + theme(text = element_text(color = "#e5e7eb"),
-                             plot.title = element_text(color = "#f8fafc"),
-                             axis.text  = element_text(color = "#cbd5e1"))
-    # suppress the benign "Ignoring unknown aesthetics: text" (ggplot doesn't know
-    # the `text` aesthetic, but ggplotly uses it to build the hover tooltip)
-    gp <- suppressWarnings(ggplotly(p, tooltip = tip, source = "distribPlot"))
-    gp <- layout(gp,
-                 dragmode = "select",
-                 paper_bgcolor = bg, plot_bgcolor = bg,
-                 font  = list(color = fg),
-                 xaxis = list(gridcolor = grid, zerolinecolor = grid),
-                 yaxis = list(gridcolor = grid, zerolinecolor = grid))
-    # responsive = TRUE: plotly re-fits to its container on resize / phone
-    # rotation rather than keeping the width it was first rendered at.
-    gp <- config(gp, displaylogo = FALSE, responsive = TRUE,
-                 modeBarButtonsToRemove = list("lasso2d", "autoScale2d", "hoverClosestCartesian", "hoverCompareCartesian"),
-                 toImageButtonOptions = list(format = "png", filename = "distribution-plot", scale = 2))
-    gp <- event_register(gp, "plotly_click")
-    event_register(gp, "plotly_selected")
+    finish_prob_plot(p, dark = isTRUE(input$dark_mode == "dark"))
   })
 
   # Clicking the plot sets the relevant x-value for the current output mode.
-  observeEvent(suppressWarnings(event_data("plotly_click", source = "distribPlot")), {
-    ev <- suppressWarnings(event_data("plotly_click", source = "distribPlot"))
-    if (is.null(ev) || is.null(ev$x)) return()
-    xval <- suppressWarnings(as.numeric(ev$x[1]))
+  # input$distribPlot_click is list(x = <clicked point's x>): the bar's value on a
+  # discrete plot, the curve's x on a continuous one.
+  observeEvent(input$distribPlot_click, {
+    ev <- input$distribPlot_click
+    if (is.null(ev$x)) return()
+    xval <- suppressWarnings(as.numeric(ev$x[[1]]))
     if (!is.finite(xval)) return()
-    if (input$distrib %in% discreteDists) xval <- round(xval)
+    # a bar's value is an integer; a point on a curve is kept to 4 significant digits
+    xval <- if (input$distrib %in% discreteDists) round(xval) else signif(xval, 4)
     if (input$outType == "PDF" && identical(input$percentile, "pdf")) {
       updateNumericInput(session, "xFixedPC", value = xval)
     } else if (input$outType == "CDF") {
@@ -1135,14 +913,20 @@ appServer <- function(input, output, session) {
     }
   })
 
-  # Dragging a box on the plot sets the lower/upper bounds (between / extreme).
-  observeEvent(suppressWarnings(event_data("plotly_selected", source = "distribPlot")), {
-    ev <- suppressWarnings(event_data("plotly_selected", source = "distribPlot"))
-    if (is.null(ev) || is.null(ev$x) || !length(ev$x)) return()
-    xs <- suppressWarnings(as.numeric(ev$x)); xs <- xs[is.finite(xs)]
+  # Dragging across the plot sets the lower/upper bounds (between / extreme).
+  # input$distribPlot_selected is list(x = ...): the two ends of the brushed
+  # x-range on a continuous plot, the values of the brushed bars on a discrete one.
+  observeEvent(input$distribPlot_selected, {
+    ev <- input$distribPlot_selected
+    if (!length(ev$x)) return()
+    xs <- suppressWarnings(as.numeric(unlist(ev$x))); xs <- xs[is.finite(xs)]
     if (!length(xs)) return()
     lo <- min(xs); hi <- max(xs)
-    if (input$distrib %in% discreteDists) { lo <- round(lo); hi <- round(hi) }
+    if (input$distrib %in% discreteDists) {
+      lo <- round(lo); hi <- round(hi)
+    } else {
+      lo <- signif(lo, 4); hi <- signif(hi, 4)
+    }
     if (input$outType == "Probability" &&
         !is.null(input$probType) && input$probType %in% c("between", "extreme")) {
       updateNumericInput(session, "x1", value = lo)

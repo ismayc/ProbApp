@@ -2,31 +2,21 @@
 # Calculator for Probability Distributions Shiny app.
 
 # ---------------------------------------------------------------------------
-# Shared modern plot styling
+# Shared plot styling
 # ---------------------------------------------------------------------------
-# A single palette + theme keeps every plot consistent with the app's
-# "clean academic" look. HL is the teal accent used to highlight the value /
-# region of interest; BASE is the muted bar fill; LINE is the density/CDF curve.
+# A plot is a plain R list in the shape plotly.js takes (data = traces, plus a
+# layout). It is sent to the browser as JSON and drawn by www/prob-plot.js, so
+# the app needs neither the ggplot2 nor the plotly R package: their dependency
+# tree (38 packages) was most of the download and startup time of the
+# shinylive / webR build.
+#
+# A single palette keeps every plot consistent with the app's "clean academic"
+# look. HL is the teal accent used to highlight the value / region of interest;
+# BASE is the muted bar fill; LINE is the density/CDF curve.
 prob_hl   <- "#0d9488"  # teal accent (highlighted bars / shaded area)
 prob_base <- "#94a3b8"  # muted slate (non-highlighted bars)
 prob_line <- "#64748b"  # slate (density / CDF curve) — reads on light AND dark
-
-theme_prob <- function(base_size = 14) {
-  theme_minimal(base_size = base_size) +
-    theme(
-      # transparent backgrounds so the plot blends into its (light or dark) card
-      plot.background  = element_rect(fill = "transparent", color = NA),
-      panel.background = element_rect(fill = "transparent", color = NA),
-      plot.title       = element_text(face = "bold", hjust = 0.5,
-                                       margin = margin(b = 8)),
-      plot.title.position = "plot",
-      axis.title       = element_text(face = "bold"),
-      axis.title.x     = element_text(margin = margin(t = 6)),
-      axis.title.y     = element_text(margin = margin(r = 6)),
-      panel.grid.minor = element_blank(),
-      plot.margin      = margin(12, 16, 10, 12)
-    )
-}
+prob_hl_fill <- "rgba(13,148,136,0.85)"  # prob_hl at the shaded-area opacity
 
 # Format a probability/result value for display inside MathJax. Very small
 # nonzero magnitudes (which would otherwise round to "0.0000") are shown in
@@ -52,22 +42,65 @@ prob_breaks <- function(limits) {
         ceiling((limits[2] - limits[1]) / 15))
 }
 
-# Drop-in replacement for the single way the app used ggplot2::qplot():
-#   qplot(factor(range), y, xlab=, ylab=, main=, geom="bar", stat="identity", fill=)
-# qplot()'s `stat`/`geom` arguments became defunct in ggplot2 4.0, so this
-# reimplements that exact bar use-case with geom_col() and the shared theme.
-# The discrete plot call sites in server.R then keep their fill logic verbatim,
-# appending their own scale_fill_manual()/guides() exactly as before.
-# `fill` (a logical vector) highlights the bars in the region of interest.
-qplot <- function(x, y, xlab = "", ylab = "", main = "",
-                  geom = "bar", stat = "identity", fill = NULL) {
-  if (is.null(fill)) fill <- FALSE
-  d <- data.frame(x = x, y = y, fill = fill,
-                  tt = sprintf("ℙ(X = %s) = %.4f", as.character(x), y))
-  ggplot(d, aes(x = x, y = y, fill = fill, text = tt)) +
-    geom_col(width = 0.85) +
-    labs(x = xlab, y = ylab, title = sub("\\s*\\n$", "", main)) +
-    theme_prob()
+# Assemble a plot: a list of plotly.js traces plus the shared layout (bold
+# centered title, bold axis titles, no legend). `xaxis` / `yaxis` add or
+# override axis settings. Vectors that must stay JSON arrays even at length 1
+# are wrapped in I() by the callers. Colors that depend on light/dark mode are
+# applied later by finish_prob_plot().
+prob_plot <- function(traces, title, xlab, ylab, xaxis = list(), yaxis = list()) {
+  bold <- function(s) paste0("<b>", trimws(s), "</b>")
+  axis <- function(label, extra) {
+    utils::modifyList(list(title = list(text = bold(label)),
+                           tickfont = list(size = 14.9),
+                           automargin = TRUE, zeroline = FALSE), extra)
+  }
+  structure(
+    list(data = traces,
+         layout = list(
+           title = list(text = bold(title), x = 0.5, xref = "paper",
+                        font = list(size = 22.3)),
+           font = list(size = 18.6),
+           margin = list(t = 54, r = 21, b = 51, l = 62),
+           xaxis = axis(xlab, xaxis),
+           yaxis = axis(ylab, yaxis),
+           hovermode = "closest",
+           showlegend = FALSE,
+           # dragging brushes an x-range (see the distribPlot_selected observer)
+           dragmode = "select",
+           selectdirection = "h")),
+    class = "prob_plot")
+}
+
+# Apply the light/dark colors and the plotly.js config, and drop the class so
+# the result serializes as plain JSON: list(data, layout, config).
+finish_prob_plot <- function(p, dark = FALSE) {
+  bg   <- if (dark) "#1f2937" else "white"
+  grid <- if (dark) "#475569" else "#e5e7eb"
+  fg   <- if (dark) "#e5e7eb" else "#1f2937"
+  head <- if (dark) "#f8fafc" else "#000000"   # plot title
+  lab  <- if (dark) "#e5e7eb" else "#000000"   # axis titles
+  tick <- if (dark) "#cbd5e1" else "#4d4d4d"   # tick labels
+  L <- p$layout
+  L$paper_bgcolor <- bg
+  L$plot_bgcolor  <- bg
+  L$font$color <- fg
+  L$title$font$color <- head
+  for (ax in c("xaxis", "yaxis")) {
+    L[[ax]]$gridcolor <- grid
+    L[[ax]]$zerolinecolor <- grid
+    L[[ax]]$title$font$color <- lab
+    L[[ax]]$tickfont$color <- tick
+  }
+  list(
+    data = p$data,
+    layout = L,
+    # responsive = TRUE: plotly re-fits to its container on resize / phone
+    # rotation rather than keeping the width it was first rendered at.
+    config = list(
+      displaylogo = FALSE, responsive = TRUE,
+      modeBarButtonsToRemove = I(c("lasso2d", "autoScale2d",
+                                   "hoverClosestCartesian", "hoverCompareCartesian")),
+      toImageButtonOptions = list(format = "png", filename = "distribution-plot", scale = 2)))
 }
 
 # ---------------------------------------------------------------------------
@@ -79,8 +112,30 @@ qunifdisc <- function(p, min=0, max=1) floor(p*(max-min+1))
 runifdisc <- function(n, min=0, max=1) sample(min:max, n, replace=T)
 
 # ---------------------------------------------------------------------------
-# Discrete PMF / CDF bar plot (highlights the bar at `inputValue`)
+# Discrete PMF / CDF bar plots
 # ---------------------------------------------------------------------------
+# One bar per value in `x` with height `y`. `fill` is a logical vector (or a
+# single value) marking the bars in the region of interest: TRUE bars get the
+# teal accent, the rest the muted base color. The x-axis is categorical with a
+# horizontal tick label on every value (ui.R thins them on phones), and each
+# bar carries its hover tooltip. Uses the
+# blackboard-bold ℙ (U+2119) to match the \mathbb{P} shown in the Result card.
+pmf_plot <- function(x, y, xlab = "", ylab = "", main = "", fill = NULL,
+                     tooltip = sprintf("ℙ(X = %s) = %.4f", as.character(x), y)) {
+  n <- length(y)
+  if (is.null(fill)) fill <- FALSE
+  if (length(fill) == 1) fill <- rep(fill, n)
+  # a region bound that has not arrived yet gives a zero-length `fill`
+  if (length(x) != n || length(fill) != n) return(NULL)
+  hl <- !is.na(fill) & fill
+  bars <- list(type = "bar", x = I(as.character(x)), y = I(y), width = 0.85,
+               marker = list(color = I(ifelse(hl, prob_hl, prob_base))),
+               text = I(tooltip), textposition = "none", hoverinfo = "text")
+  prob_plot(list(bars), main, xlab, ylab,
+            xaxis = list(type = "category", dtick = 1, tickangle = 0))
+}
+
+# PMF / CDF bar plot that highlights the bar at `inputValue`.
 distribPlot <- function(func = dbinom,
                         range = 0:1,
                         args = c(1, 0.5),
@@ -104,23 +159,17 @@ distribPlot <- function(func = dbinom,
            else
              func(range - paramAdjust, args[1], args[2], args[3])
 
-  # Hover tooltip text shown on each bar (interactive via ggiraph). Uses the
-  # blackboard-bold ℙ (U+2119) to match the \mathbb{P} shown in the Result card.
   tt <- if (identical(plotType, "Cumulative"))
           sprintf("ℙ(X ≤ %s) = %.4f", range, yvals)
         else
           sprintf("ℙ(X = %s) = %.4f", range, yvals)
-  df <- data.frame(x = factor(range), y = yvals, hl = range == inputValue, tt = tt)
 
-  # `text` carries the hover tooltip through to plotly (ggplotly(tooltip = "text"))
-  ggplot(df, aes(x = x, y = y, fill = hl, text = tt)) +
-    geom_col(width = 0.85) +
-    scale_fill_manual(values = c(`FALSE` = prob_base, `TRUE` = prob_hl)) +
-    labs(x = xlabel,
-         y = paste(plotType, "Probability"),
-         title = paste(distribName, mainLabel)) +
-    guides(fill = "none") +
-    theme_prob()
+  pmf_plot(range, yvals,
+           xlab = xlabel,
+           ylab = paste(plotType, "Probability"),
+           main = paste(distribName, mainLabel),
+           fill = range == inputValue,
+           tooltip = tt)
 }
 
 # ---------------------------------------------------------------------------
@@ -128,417 +177,163 @@ distribPlot <- function(func = dbinom,
 # Each draws the density / CDF curve and shades the region of interest.
 # ---------------------------------------------------------------------------
 
+# The x-window shown for `limits`: 5% of padding on each side.
+prob_xrange <- function(limits) limits + c(-1, 1) * 0.05 * diff(limits)
+
+# Curve of `fun` over `limits` (n points) with the area under it shaded over
+# each x-vector in `shade`. Non-finite values (a density that is infinite at an
+# endpoint) are sent as gaps and left out of the y-axis range.
+curve_plot <- function(fun, limits, shade, n, title, ylab) {
+  finite <- function(v) { v[!is.finite(v)] <- NA; v }
+  x <- seq(limits[1], limits[2], length.out = n)
+  y <- finite(fun(x))
+  areas <- lapply(shade, function(sx) {
+    list(type = "scatter", mode = "lines", x = I(sx), y = I(finite(fun(sx))),
+         fill = "tozeroy", fillcolor = prob_hl_fill, line = list(width = 0),
+         hoverinfo = "skip")
+  })
+  curve <- list(type = "scatter", mode = "lines", x = I(x), y = I(y),
+                line = list(color = prob_line, width = 3.4),
+                hovertemplate = "x: %{x:.4~f}<br>y: %{y:.4~g}<extra></extra>")
+  top <- suppressWarnings(max(y, unlist(lapply(areas, `[[`, "y")), na.rm = TRUE))
+  prob_plot(c(areas, list(curve)), title, "x", ylab,
+            xaxis = list(range = I(prob_xrange(limits)),
+                         tickmode = "array", tickvals = I(prob_breaks(limits))),
+            yaxis = if (is.finite(top) && top > 0) list(range = I(c(-0.05, 1.05) * top))
+                    else list())
+}
+
+# Density plot shading [lb, ub] (clipped to `limits`), or, when `extreme`, the
+# two tails outside it. `tails` gives where the tail shading starts and ends.
+area_plot <- function(dfun, lb, ub, limits, title, extreme = FALSE, n = 100, tails = limits) {
+  xmin <- max(lb, limits[1])
+  xmax <- min(ub, limits[2])
+  shade <- if (extreme == FALSE)
+             list(seq(xmin, xmax, length.out = n))
+           else
+             list(seq(tails[1], xmin, length.out = n),
+                  seq(xmax, tails[2], length.out = n))
+  curve_plot(dfun, limits, shade, n, title, "Density")
+}
+
+# CDF plot shading the area under the CDF over [lb, ub] (clipped to `limits`).
+cdf_plot <- function(pfun, lb, ub, limits, title, n = 100) {
+  xmin <- max(lb, limits[1])
+  xmax <- min(ub, limits[2])
+  curve_plot(pfun, limits, list(seq(xmin, xmax, length.out = n)), n, title,
+             "Cumulative Probability")
+}
+
 #Chi-square
 chisq_prob_area_plot <- function(lb, ub, df=10, limits = c(0, qchisq(0.999, df)), extreme = FALSE){
   if(is.null(limits[1]) || is.null(limits[2])) return ()
-  x <- seq(limits[1], limits[2], length.out = 1000)
-  xmin <- max(lb, limits[1])
-  xmax <- min(ub, limits[2])
-  if(extreme == FALSE){
-    areax1 <- seq(xmin, xmax, length.out = 1000)
-    areax2 <- 0 #No area
-  } else{
-    areax1 <- seq(0, xmin, length.out = 1000)
-    areax2 <- seq(xmax, qchisq(0.999, df), length.out = 1000)
-  }
-
-  area1 <- data.frame(x = areax1, ymin = 0, ymax = dchisq(areax1, df = df))
-  area2 <- data.frame(x = areax2, ymin = 0, ymax = dchisq(areax2, df = df))
-  ggplot() +
-    xlab("x") +
-    ylab("Density") +
-    ggtitle("Chi-Square Probability Density Function") +
-    geom_ribbon(data = area1, mapping = aes(x = x, ymin = ymin, ymax = ymax),
-                fill = prob_hl, alpha = 0.85) +
-    geom_ribbon(data = area2, mapping = aes(x = x, ymin = ymin, ymax = ymax),
-                fill = prob_hl, alpha = 0.85) +
-    geom_line(data.frame(x = x, y = dchisq(x, df = df)),
-              mapping = aes(x = x, y = y), color = prob_line, linewidth = 0.9) +
-    scale_x_continuous(breaks = prob_breaks(limits)) +
-    coord_cartesian(xlim = limits) +
-    theme_prob()
+  area_plot(function(x) dchisq(x, df = df), lb, ub, limits,
+            "Chi-Square Probability Density Function", extreme, n = 1000,
+            tails = c(0, qchisq(0.999, df)))
 }
 
 chisq_prob_CDF_plot <- function(lb, ub, df = 10, limits = c(0, qchisq(0.999, df))){
   if(is.null(limits[1]) || is.null(limits[2])) return ()
-  x <- seq(limits[1], limits[2], length.out = 100)
-  xmin <- max(lb, limits[1])
-  xmax <- min(ub, limits[2])
-  areax <- seq(xmin, xmax, length.out = 100)
-  area <- data.frame(x = areax, ymin = 0, ymax = pchisq(areax, df = df))
-
-  ggplot() +
-    xlab("x") +
-    ylab("Cumulative Probability") +
-    ggtitle("Chi-Square Cumulative Distribution Function") +
-    geom_ribbon(data = area, mapping = aes(x = x, ymin = ymin, ymax = ymax),
-                fill = prob_hl, alpha = 0.85) +
-    geom_line(data.frame(x = x, y = pchisq(x, df = df)),
-              mapping = aes(x = x, y = y), color = prob_line, linewidth = 0.9) +
-    scale_x_continuous(breaks = prob_breaks(limits)) +
-    coord_cartesian(xlim = limits) +
-    theme_prob()
+  cdf_plot(function(x) pchisq(x, df = df), lb, ub, limits,
+           "Chi-Square Cumulative Distribution Function")
 }
 
 #F
 f_prob_area_plot <- function(lb, ub, df1=5, df2=10, limits = c(0, qf(0.99, df1, df2)), extreme = FALSE){
   if(is.null(limits[1]) || is.null(limits[2]) || is.null(df1) || is.null(df2)) return ()
-  x <- seq(limits[1], limits[2], length.out = 1000)
-  xmin <- max(lb, limits[1])
-  xmax <- min(ub, limits[2])
-  if(extreme == FALSE){
-    areax1 <- seq(xmin, xmax, length.out = 1000)
-    areax2 <- 0 #No area
-  } else{
-    areax1 <- seq(0, xmin, length.out = 1000)
-    areax2 <- seq(xmax, qf(0.99, df1, df2), length.out = 1000)
-  }
-
-  area1 <- data.frame(x = areax1, ymin = 0, ymax = df(areax1, df1 = df1, df2 = df2))
-  area2 <- data.frame(x = areax2, ymin = 0, ymax = df(areax2, df1 = df1, df2 = df2))
-  ggplot() +
-    xlab("x") +
-    ylab("Density") +
-    ggtitle("F Probability Density Function") +
-    geom_ribbon(data = area1, mapping = aes(x = x, ymin = ymin, ymax = ymax),
-                fill = prob_hl, alpha = 0.85) +
-    geom_ribbon(data = area2, mapping = aes(x = x, ymin = ymin, ymax = ymax),
-                fill = prob_hl, alpha = 0.85) +
-    geom_line(data.frame(x = x, y = df(x, df1 = df1, df2 = df2)),
-              mapping = aes(x = x, y = y), color = prob_line, linewidth = 0.9) +
-    scale_x_continuous(breaks = prob_breaks(limits)) +
-    coord_cartesian(xlim = limits) +
-    theme_prob()
+  area_plot(function(x) df(x, df1 = df1, df2 = df2), lb, ub, limits,
+            "F Probability Density Function", extreme, n = 1000,
+            tails = c(0, qf(0.99, df1, df2)))
 }
 
 f_prob_CDF_plot <- function(lb, ub, df1 = 5, df2 = 10, limits = c(0, qf(0.99, df1, df2))){
   if(is.null(limits[1]) || is.null(limits[2])) return ()
-  x <- seq(limits[1], limits[2], length.out = 100)
-  xmin <- max(lb, limits[1])
-  xmax <- min(ub, limits[2])
-  areax <- seq(xmin, xmax, length.out = 100)
-  area <- data.frame(x = areax, ymin = 0, ymax = pf(areax, df1 = df1, df2 = df2))
-
-  ggplot() +
-    xlab("x") +
-    ylab("Cumulative Probability") +
-    ggtitle("F Cumulative Distribution Function") +
-    geom_ribbon(data = area, mapping = aes(x = x, ymin = ymin, ymax = ymax),
-                fill = prob_hl, alpha = 0.85) +
-    geom_line(data.frame(x = x, y = pf(x, df1 = df1, df2 = df2)),
-              mapping = aes(x = x, y = y), color = prob_line, linewidth = 0.9) +
-    scale_x_continuous(breaks = prob_breaks(limits)) +
-    coord_cartesian(xlim = limits) +
-    theme_prob()
+  cdf_plot(function(x) pf(x, df1 = df1, df2 = df2), lb, ub, limits,
+           "F Cumulative Distribution Function")
 }
 
-#Normal (shading adapted from https://gist.github.com/jrnold/6799152)
+#Normal
 normal_prob_area_plot <- function(lb, ub, mean = 0, sd = 1, limits = c(mean - 4 * sd, mean + 4 * sd), extreme = FALSE){
   if(is.null(limits[1]) || is.null(limits[2])) return ()
-  x <- seq(limits[1], limits[2], length.out = 100)
-  xmin <- max(lb, limits[1])
-  xmax <- min(ub, limits[2])
-  if(extreme == FALSE){
-    areax1 <- seq(xmin, xmax, length.out = 100)
-    areax2 <- 0 #No area
-  } else{
-    areax1 <- seq(ceiling(mean - 4 * sd), xmin, length.out = 100)
-    areax2 <- seq(xmax, ceiling(mean + 4 * sd), length.out = 100)
-  }
-
-  area1 <- data.frame(x = areax1, ymin = 0, ymax = dnorm(areax1, mean = mean, sd = sd))
-  area2 <- data.frame(x = areax2, ymin = 0, ymax = dnorm(areax2, mean = mean, sd = sd))
-  ggplot() +
-    xlab("x") +
-    ylab("Density") +
-    ggtitle("Normal Probability Density Function") +
-    geom_ribbon(data = area1, mapping = aes(x = x, ymin = ymin, ymax = ymax),
-                fill = prob_hl, alpha = 0.85) +
-    geom_ribbon(data = area2, mapping = aes(x = x, ymin = ymin, ymax = ymax),
-                fill = prob_hl, alpha = 0.85) +
-    geom_line(data.frame(x = x, y = dnorm(x, mean = mean, sd = sd)),
-              mapping = aes(x = x, y = y), color = prob_line, linewidth = 0.9) +
-    scale_x_continuous(breaks = prob_breaks(limits)) +
-    coord_cartesian(xlim = limits) +
-    theme_prob()
+  area_plot(function(x) dnorm(x, mean = mean, sd = sd), lb, ub, limits,
+            "Normal Probability Density Function", extreme,
+            tails = c(ceiling(mean - 4 * sd), ceiling(mean + 4 * sd)))
 }
 
 normal_prob_CDF_plot <- function(lb, ub, mean = 0, sd = 1, limits = c(mean - 4 * sd, mean + 4 * sd)){
   if(is.null(limits[1]) || is.null(limits[2])) return ()
-  x <- seq(limits[1], limits[2], length.out = 100)
-  xmin <- max(lb, limits[1])
-  xmax <- min(ub, limits[2])
-  areax <- seq(xmin, xmax, length.out = 100)
-  area <- data.frame(x = areax, ymin = 0, ymax = pnorm(areax, mean = mean, sd = sd))
-
-  ggplot() +
-    xlab("x") +
-    ylab("Cumulative Probability") +
-    ggtitle("Normal Cumulative Distribution Function") +
-    geom_ribbon(data = area, mapping = aes(x = x, ymin = ymin, ymax = ymax),
-                fill = prob_hl, alpha = 0.85) +
-    geom_line(data.frame(x = x, y = pnorm(x, mean = mean, sd = sd)),
-              mapping = aes(x = x, y = y), color = prob_line, linewidth = 0.9) +
-    scale_x_continuous(breaks = prob_breaks(limits)) +
-    coord_cartesian(xlim = limits) +
-    theme_prob()
+  cdf_plot(function(x) pnorm(x, mean = mean, sd = sd), lb, ub, limits,
+           "Normal Cumulative Distribution Function")
 }
 
 #Student's t
 t_prob_area_plot <- function(lb, ub, df=10, limits = c(qt(0.001, df), qt(0.999, df)), extreme = FALSE){
   if(is.null(limits[1]) || is.null(limits[2])) return ()
-  x <- seq(limits[1], limits[2], length.out = 1000)
-  xmin <- max(lb, limits[1])
-  xmax <- min(ub, limits[2])
-  if(extreme == FALSE){
-    areax1 <- seq(xmin, xmax, length.out = 1000)
-    areax2 <- 0 #No area
-  } else{
-    areax1 <- seq(qt(0.001, df), xmin, length.out = 1000)
-    areax2 <- seq(xmax, qt(0.999, df), length.out = 1000)
-  }
-
-  area1 <- data.frame(x = areax1, ymin = 0, ymax = dt(areax1, df = df))
-  area2 <- data.frame(x = areax2, ymin = 0, ymax = dt(areax2, df = df))
-  ggplot() +
-    xlab("x") +
-    ylab("Density") +
-    ggtitle("Student's t Probability Density Function") +
-    geom_ribbon(data = area1, mapping = aes(x = x, ymin = ymin, ymax = ymax),
-                fill = prob_hl, alpha = 0.85) +
-    geom_ribbon(data = area2, mapping = aes(x = x, ymin = ymin, ymax = ymax),
-                fill = prob_hl, alpha = 0.85) +
-    geom_line(data.frame(x = x, y = dt(x, df = df)),
-              mapping = aes(x = x, y = y), color = prob_line, linewidth = 0.9) +
-    scale_x_continuous(breaks = prob_breaks(limits)) +
-    coord_cartesian(xlim = limits) +
-    theme_prob()
+  area_plot(function(x) dt(x, df = df), lb, ub, limits,
+            "Student's t Probability Density Function", extreme, n = 1000,
+            tails = c(qt(0.001, df), qt(0.999, df)))
 }
 
 t_prob_CDF_plot <- function(lb, ub, df = 10, limits = c(qt(0.001, df), qt(0.999, df))){
   if(is.null(limits[1]) || is.null(limits[2])) return ()
-  x <- seq(limits[1], limits[2], length.out = 100)
-  xmin <- max(lb, limits[1])
-  xmax <- min(ub, limits[2])
-  areax <- seq(xmin, xmax, length.out = 100)
-  area <- data.frame(x = areax, ymin = 0, ymax = pt(areax, df = df))
-
-  ggplot() +
-    xlab("x") +
-    ylab("Cumulative Probability") +
-    ggtitle("Student's t Cumulative Distribution Function") +
-    geom_ribbon(data = area, mapping = aes(x = x, ymin = ymin, ymax = ymax),
-                fill = prob_hl, alpha = 0.85) +
-    geom_line(data.frame(x = x, y = pt(x, df = df)),
-              mapping = aes(x = x, y = y), color = prob_line, linewidth = 0.9) +
-    scale_x_continuous(breaks = prob_breaks(limits)) +
-    coord_cartesian(xlim = limits) +
-    theme_prob()
+  cdf_plot(function(x) pt(x, df = df), lb, ub, limits,
+           "Student's t Cumulative Distribution Function")
 }
 
 #Uniform Distribution
 uniform_prob_area_plot <- function(lb, ub, min, max, limits = c(min, max), extreme = FALSE) {
   if(is.null(limits[1]) || is.null(limits[2])) return ()
-  x <- seq(limits[1], limits[2], length.out = 100)
-  xmin <- max(lb, limits[1])
-  xmax <- min(ub, limits[2])
-  if(extreme == FALSE){
-    areax1 <- seq(xmin, xmax, length.out = 100)
-    areax2 <- 0 #No area
-  } else{
-    areax1 <- seq(ceiling(min - 1), xmin, length.out = 100)
-    areax2 <- seq(xmax, ceiling(max + 1), length.out = 100)
-  }
-
-  area1 <- data.frame(x = areax1, ymin = 0, ymax = dunif(areax1, min = min, max = max))
-  area2 <- data.frame(x = areax2, ymin = 0, ymax = dunif(areax2, min = min, max = max))
-  ggplot() +
-    xlab("x") +
-    ylab("Density") +
-    ggtitle("Uniform Probability Density Function") +
-    geom_ribbon(data = area1, mapping = aes(x = x, ymin = ymin, ymax = ymax),
-                fill = prob_hl, alpha = 0.85) +
-    geom_ribbon(data = area2, mapping = aes(x = x, ymin = ymin, ymax = ymax),
-                fill = prob_hl, alpha = 0.85) +
-    geom_line(data.frame(x = x, y = dunif(x, min = min, max = max)),
-              mapping = aes(x = x, y = y), color = prob_line, linewidth = 0.9) +
-    scale_x_continuous(breaks = prob_breaks(limits)) +
-    coord_cartesian(xlim = limits) +
-    theme_prob()
+  area_plot(function(x) dunif(x, min = min, max = max), lb, ub, limits,
+            "Uniform Probability Density Function", extreme,
+            tails = c(ceiling(min - 1), ceiling(max + 1)))
 }
 
 uniform_prob_CDF_plot <- function(lb, ub = max + 1, min, max, limits = c(min - 1, max + 1)) {
   if(is.null(limits[1]) || is.null(limits[2])) return ()
-  x <- seq(limits[1], limits[2], length.out = 100)
-  xmin <- max(lb, limits[1])
-  xmax <- min(ub, limits[2])
-  areax <- seq(xmin, xmax, length.out = 100)
-  area <- data.frame(x = areax, ymin = 0, ymax = punif(areax, min = min, max = max))
-  ggplot() +
-    xlab("x") +
-    ylab("Cumulative Probability") +
-    ggtitle("Uniform Cumulative Distribution Function") +
-    geom_ribbon(data = area, mapping = aes(x = x, ymin = ymin, ymax = ymax),
-                fill = prob_hl, alpha = 0.85) +
-    geom_line(data.frame(x = x, y = punif(x, min = min, max = max)),
-              mapping = aes(x = x, y = y), color = prob_line, linewidth = 0.9) +
-    scale_x_continuous(breaks = prob_breaks(limits)) +
-    coord_cartesian(xlim = limits) +
-    theme_prob()
+  cdf_plot(function(x) punif(x, min = min, max = max), lb, ub, limits,
+           "Uniform Cumulative Distribution Function")
 }
 
 #Exponential Distribution
 exp_prob_area_plot <- function(lb, ub, shape = 1, scale = 1, limits = c(0, qgamma(0.999, shape=1, scale=scale)), extreme = FALSE) {
   if(is.null(limits[1]) || is.null(limits[2])) return ()
-  x <- seq(limits[1], limits[2], length.out = 100)
-  xmin <- max(lb, limits[1])
-  xmax <- min(ub, limits[2])
-  if(extreme == FALSE){
-    areax1 <- seq(xmin, xmax, length.out = 100)
-    areax2 <- 0 #No area
-  } else{
-    areax1 <- seq(ceiling(0), xmin, length.out = 100)
-    areax2 <- seq(xmax, ceiling(qgamma(0.999, shape=1, scale=scale)), length.out = 100)
-  }
-
-  area1 <- data.frame(x = areax1, ymin = 0, ymax = dgamma(areax1, shape = 1, scale = scale))
-  area2 <- data.frame(x = areax2, ymin = 0, ymax = dgamma(areax2, shape = 1, scale = scale))
-  ggplot() +
-    xlab("x") +
-    ylab("Density") +
-    ggtitle("Exponential Probability Density Function") +
-    geom_ribbon(data = area1, mapping = aes(x = x, ymin = ymin, ymax = ymax),
-                fill = prob_hl, alpha = 0.85) +
-    geom_ribbon(data = area2, mapping = aes(x = x, ymin = ymin, ymax = ymax),
-                fill = prob_hl, alpha = 0.85) +
-    geom_line(data.frame(x = x, y = dgamma(x, shape = 1, scale = scale)),
-              mapping = aes(x = x, y = y), color = prob_line, linewidth = 0.9) +
-    scale_x_continuous(breaks = prob_breaks(limits)) +
-    coord_cartesian(xlim = limits) +
-    theme_prob()
+  area_plot(function(x) dgamma(x, shape = 1, scale = scale), lb, ub, limits,
+            "Exponential Probability Density Function", extreme,
+            tails = c(0, ceiling(qgamma(0.999, shape=1, scale=scale))))
 }
 
 exp_prob_CDF_plot <- function(lb, ub = qgamma(0.999, shape=1, scale=scale), shape = 1, scale = 1, limits = c(0, qgamma(0.999, shape=1, scale=scale))) {
   if(is.null(limits[1]) || is.null(limits[2])) return ()
-  x <- seq(limits[1], limits[2], length.out = 100)
-  xmin <- max(lb, limits[1])
-  xmax <- min(ub, limits[2])
-  areax <- seq(xmin, xmax, length.out = 100)
-  area <- data.frame(x = areax, ymin = 0, ymax = pgamma(areax, shape = shape, scale = scale))
-  ggplot() +
-    xlab("x") +
-    ylab("Cumulative Probability") +
-    ggtitle("Exponential Cumulative Distribution Function") +
-    geom_ribbon(data = area, mapping = aes(x = x, ymin = ymin, ymax = ymax),
-                fill = prob_hl, alpha = 0.85) +
-    geom_line(data.frame(x = x, y = pgamma(x, shape = shape, scale = scale)),
-              mapping = aes(x = x, y = y), color = prob_line, linewidth = 0.9) +
-    scale_x_continuous(breaks = prob_breaks(limits)) +
-    coord_cartesian(xlim = limits) +
-    theme_prob()
+  cdf_plot(function(x) pgamma(x, shape = shape, scale = scale), lb, ub, limits,
+           "Exponential Cumulative Distribution Function")
 }
 
 #Gamma Distribution
 gamma_prob_area_plot <- function(lb, ub, shape, scale, limits = c(0, qgamma(0.999, shape=shape, scale=scale)), extreme = FALSE) {
   if(is.null(limits[1]) || is.null(limits[2])) return ()
-  x <- seq(limits[1], limits[2], length.out = 100)
-  xmin <- max(lb, limits[1])
-  xmax <- min(ub, limits[2])
-  if(extreme == FALSE){
-    areax1 <- seq(xmin, xmax, length.out = 100)
-    areax2 <- 0 #No area
-  } else{
-    areax1 <- seq(ceiling(0), xmin, length.out = 100)
-    areax2 <- seq(xmax, ceiling(qgamma(0.999, shape = shape, scale = scale)), length.out = 100)
-  }
-
-  area1 <- data.frame(x = areax1, ymin = 0, ymax = dgamma(areax1, shape = shape, scale = scale))
-  area2 <- data.frame(x = areax2, ymin = 0, ymax = dgamma(areax2, shape = shape, scale = scale))
-  ggplot() +
-    xlab("x") +
-    ylab("Density") +
-    ggtitle("Gamma Probability Density Function") +
-    geom_ribbon(data = area1, mapping = aes(x = x, ymin = ymin, ymax = ymax),
-                fill = prob_hl, alpha = 0.85) +
-    geom_ribbon(data = area2, mapping = aes(x = x, ymin = ymin, ymax = ymax),
-                fill = prob_hl, alpha = 0.85) +
-    geom_line(data.frame(x = x, y = dgamma(x, shape = shape, scale = scale)),
-              mapping = aes(x = x, y = y), color = prob_line, linewidth = 0.9) +
-    scale_x_continuous(breaks = prob_breaks(limits)) +
-    coord_cartesian(xlim = limits) +
-    theme_prob()
+  area_plot(function(x) dgamma(x, shape = shape, scale = scale), lb, ub, limits,
+            "Gamma Probability Density Function", extreme,
+            tails = c(0, ceiling(qgamma(0.999, shape = shape, scale = scale))))
 }
 
 gamma_prob_CDF_plot <- function(lb, ub = qgamma(0.999, shape=shape, scale=scale), shape = 1, scale = 1,
                                 limits = c(0, qgamma(0.999, shape=shape, scale=scale))) {
   if(is.null(limits[1]) || is.null(limits[2])) return ()
-  x <- seq(limits[1], limits[2], length.out = 100)
-  xmin <- max(lb, limits[1])
-  xmax <- min(ub, limits[2])
-  areax <- seq(xmin, xmax, length.out = 100)
-  area <- data.frame(x = areax, ymin = 0, ymax = pgamma(areax, shape = shape, scale = scale))
-  ggplot() +
-    xlab("x") +
-    ylab("Cumulative Probability") +
-    ggtitle("Gamma Cumulative Distribution Function") +
-    geom_ribbon(data = area, mapping = aes(x = x, ymin = ymin, ymax = ymax),
-                fill = prob_hl, alpha = 0.85) +
-    geom_line(data.frame(x = x, y = pgamma(x, shape = shape, scale = scale)),
-              mapping = aes(x = x, y = y), color = prob_line, linewidth = 0.9) +
-    scale_x_continuous(breaks = prob_breaks(limits)) +
-    coord_cartesian(xlim = limits) +
-    theme_prob()
+  cdf_plot(function(x) pgamma(x, shape = shape, scale = scale), lb, ub, limits,
+           "Gamma Cumulative Distribution Function")
 }
 
 #Beta Distribution
 beta_prob_area_plot <- function(lb, ub, shape1, shape2, limits = c(0, 1), extreme = FALSE) {
   if(is.null(limits[1]) || is.null(limits[2]) || is.null(shape1) || is.null(shape2)) return ()
-  x <- seq(limits[1], limits[2], length.out = 100)
-  xmin <- max(lb, limits[1])
-  xmax <- min(ub, limits[2])
-  if(extreme == FALSE){
-    areax1 <- seq(xmin, xmax, length.out = 100)
-    areax2 <- 0 #No area
-  } else{
-    areax1 <- seq(0, xmin, length.out = 100)
-    areax2 <- seq(xmax, 1, length.out = 100)
-  }
-
-  area1 <- data.frame(x = areax1, ymin = 0, ymax = dbeta(areax1, shape1 = shape1, shape2 = shape2))
-  area2 <- data.frame(x = areax2, ymin = 0, ymax = dbeta(areax2, shape1 = shape1, shape2 = shape2))
-  ggplot() +
-    xlab("x") +
-    ylab("Density") +
-    ggtitle("Beta Probability Density Function") +
-    geom_ribbon(data = area1, mapping = aes(x = x, ymin = ymin, ymax = ymax),
-                fill = prob_hl, alpha = 0.85) +
-    geom_ribbon(data = area2, mapping = aes(x = x, ymin = ymin, ymax = ymax),
-                fill = prob_hl, alpha = 0.85) +
-    geom_line(data.frame(x = x, y = dbeta(x, shape1 = shape1, shape2 = shape2)),
-              mapping = aes(x = x, y = y), color = prob_line, linewidth = 0.9) +
-    scale_x_continuous(breaks = prob_breaks(limits)) +
-    coord_cartesian(xlim = limits) +
-    theme_prob()
+  area_plot(function(x) dbeta(x, shape1 = shape1, shape2 = shape2), lb, ub, limits,
+            "Beta Probability Density Function", extreme, tails = c(0, 1))
 }
 
 beta_prob_CDF_plot <- function(lb, ub, shape1, shape2, limits = c(0, 1)) {
   if(is.null(limits[1]) || is.null(limits[2])) return ()
-  x <- seq(limits[1], limits[2], length.out = 100)
-  xmin <- max(lb, limits[1])
-  xmax <- min(ub, limits[2])
-  areax <- seq(xmin, xmax, length.out = 100)
-  area <- data.frame(x = areax, ymin = 0, ymax = pbeta(areax, shape1 = shape1, shape2 = shape2))
-  ggplot() +
-    xlab("x") +
-    ylab("Cumulative Probability") +
-    ggtitle("Beta Cumulative Distribution Function") +
-    geom_ribbon(data = area, mapping = aes(x = x, ymin = ymin, ymax = ymax),
-                fill = prob_hl, alpha = 0.85) +
-    geom_line(data.frame(x = x, y = pbeta(x, shape1 = shape1, shape2 = shape2)),
-              mapping = aes(x = x, y = y), color = prob_line, linewidth = 0.9) +
-    scale_x_continuous(breaks = prob_breaks(limits)) +
-    coord_cartesian(xlim = limits) +
-    theme_prob()
+  cdf_plot(function(x) pbeta(x, shape1 = shape1, shape2 = shape2), lb, ub, limits,
+           "Beta Cumulative Distribution Function")
 }
 
 # ---------------------------------------------------------------------------
@@ -562,51 +357,33 @@ qlaplace <- function(p, m, b) ifelse(p < 0.5, m + b * log(2 * p), m - b * log(2 
 # ---------------------------------------------------------------------------
 cont_area_plot <- function(lb, ub, dfun, limits, title, extreme = FALSE) {
   if (is.null(limits[1]) || is.null(limits[2]) || !is.finite(limits[1]) || !is.finite(limits[2])) return ()
-  x <- seq(limits[1], limits[2], length.out = 500)
-  xmin <- max(lb, limits[1])
-  xmax <- min(ub, limits[2])
-  if (extreme == FALSE) {
-    areax1 <- seq(xmin, xmax, length.out = 500)
-    areax2 <- 0
-  } else {
-    areax1 <- seq(limits[1], xmin, length.out = 500)
-    areax2 <- seq(xmax, limits[2], length.out = 500)
-  }
-  area1 <- data.frame(x = areax1, ymin = 0, ymax = dfun(areax1))
-  area2 <- data.frame(x = areax2, ymin = 0, ymax = dfun(areax2))
-  ggplot() +
-    xlab("x") +
-    ylab("Density") +
-    ggtitle(title) +
-    geom_ribbon(data = area1, mapping = aes(x = x, ymin = ymin, ymax = ymax),
-                fill = prob_hl, alpha = 0.85) +
-    geom_ribbon(data = area2, mapping = aes(x = x, ymin = ymin, ymax = ymax),
-                fill = prob_hl, alpha = 0.85) +
-    geom_line(data.frame(x = x, y = dfun(x)),
-              mapping = aes(x = x, y = y), color = prob_line, linewidth = 0.9) +
-    scale_x_continuous(breaks = prob_breaks(limits)) +
-    coord_cartesian(xlim = limits) +
-    theme_prob()
+  area_plot(dfun, lb, ub, limits, title, extreme, n = 500)
 }
 
 cont_cdf_plot <- function(lb, ub, pfun, limits, title) {
   if (is.null(limits[1]) || is.null(limits[2]) || !is.finite(limits[1]) || !is.finite(limits[2])) return ()
-  x <- seq(limits[1], limits[2], length.out = 200)
-  xmin <- max(lb, limits[1])
-  xmax <- min(ub, limits[2])
-  areax <- seq(xmin, xmax, length.out = 200)
-  area <- data.frame(x = areax, ymin = 0, ymax = pfun(areax))
-  ggplot() +
-    xlab("x") +
-    ylab("Cumulative Probability") +
-    ggtitle(title) +
-    geom_ribbon(data = area, mapping = aes(x = x, ymin = ymin, ymax = ymax),
-                fill = prob_hl, alpha = 0.85) +
-    geom_line(data.frame(x = x, y = pfun(x)),
-              mapping = aes(x = x, y = y), color = prob_line, linewidth = 0.9) +
-    scale_x_continuous(breaks = prob_breaks(limits)) +
-    coord_cartesian(xlim = limits) +
-    theme_prob()
+  cdf_plot(pfun, lb, ub, limits, title, n = 200)
+}
+
+# Mixed custom distributions: overlay a stem (height = probability) for each
+# point mass in `atoms` (columns loc, prob), widening the x-window so masses
+# outside the continuous `support` stay visible.
+add_point_masses <- function(p, atoms, support) {
+  if (nrow(atoms) == 0) return(p)
+  stems <- list(type = "scatter", mode = "lines",
+                x = I(as.vector(rbind(atoms$loc, atoms$loc, NA))),
+                y = I(as.vector(rbind(0, atoms$prob, NA))),
+                line = list(color = prob_hl, width = 3.8), hoverinfo = "skip")
+  heads <- list(type = "scatter", mode = "markers",
+                x = I(atoms$loc), y = I(atoms$prob),
+                marker = list(color = prob_hl, size = 9.5),
+                hovertemplate = "x: %{x:.4~f}<br>y: %{y:.4~g}<extra></extra>")
+  p$data <- c(p$data, list(stems, heads))
+  lims <- range(c(support, atoms$loc)); pad <- 0.04 * diff(lims)   # lo < hi => diff > 0
+  p$layout$xaxis$range <- I(prob_xrange(c(lims[1] - pad, lims[2] + pad)))
+  top <- max(atoms$prob, p$layout$yaxis$range[2] / 1.05)
+  p$layout$yaxis$range <- I(c(-0.05, 1.05) * top)
+  p
 }
 
 ############################################################################

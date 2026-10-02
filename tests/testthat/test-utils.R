@@ -428,9 +428,9 @@ test_that("prob_breaks chooses unit vs scaled spacing by range width", {
   expect_equal(wide, seq(0, 60, ceiling(60 / 15)))
 })
 
-test_that("theme_prob returns a ggplot theme", {
-  th <- theme_prob()
-  expect_s3_class(th, "theme")
+test_that("prob_xrange pads the x-window by 5% on each side", {
+  expect_equal(prob_xrange(c(0, 10)), c(-0.5, 10.5))
+  expect_equal(prob_xrange(c(-4, 4)), c(-4.4, 4.4))
 })
 
 test_that("palette constants are defined hex colours", {
