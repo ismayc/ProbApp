@@ -4,8 +4,7 @@ name: Deploy shinylive site to GitHub Pages
 # {shinylive} and publishes it to GitHub Pages on every push to the default
 # branch. The result runs entirely client-side at:
 #   https://ismayc.github.io/ProbApp/
-# This is independent of the shinyapps.io deploy (deploy.yaml); both are built
-# from the same source files.
+# This is the app's only hosted deployment.
 #
 # Requires Pages to be enabled with "Build and deployment -> Source: GitHub
 # Actions" (Settings -> Pages). No secrets are needed.

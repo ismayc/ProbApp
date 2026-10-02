@@ -29,6 +29,12 @@ decade-old application; each subsequent minor version is one milestone of the
 - Dragging on the plot now brushes a horizontal range, and a value set by
   clicking or brushing a curve is kept to 4 significant digits.
 
+### Removed
+- The shinyapps.io deployment workflow. GitHub Pages
+  (<https://ismayc.github.io/ProbApp/>) is now the only hosted version. The app
+  still runs from R with `shiny::runApp()`, where "Share link" remains
+  available.
+
 ### Fixed
 - **Clicking a bar set the wrong value.** On discrete plots the click reported
   the bar's position (1, 2, 3, …) and not its value, so clicking the bar for 7

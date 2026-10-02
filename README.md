@@ -10,14 +10,11 @@ upper-tail, between, and "more extreme"), find **quantiles**, and read off the
 Originally created by Dr. Chester Ismay and Logan Soich; modernized with
 [bslib](https://rstudio.github.io/bslib/) (light/dark themes), interactive
 [plotly.js](https://plotly.com/javascript/) plots with hover tooltips and click/drag
-interaction, input validation, shareable-link bookmarking, and a sandboxed
-custom-distribution builder. See [`NEWS.md`](NEWS.md) for the full changelog.
+interaction, input validation, shareable-link bookmarking (when run from R), and
+a sandboxed custom-distribution builder. See [`NEWS.md`](NEWS.md) for the full changelog.
 
-**Try it live** — two hosted versions, built from the same source:
-
-- **Server version:** <https://ismay.shinyapps.io/ProbApp/> (runs on shinyapps.io)
-- **Browser-only version:** <https://ismayc.github.io/ProbApp/> (no server — R runs
-  entirely in your browser via WebAssembly, so nothing to install)
+**Try it live:** <https://ismayc.github.io/ProbApp/>. There is no server: R runs
+entirely in your browser via WebAssembly, so there is nothing to install.
 
 ## Distributions
 
@@ -92,29 +89,14 @@ Rscript tests/verification/verify-custom.R
 
 ## Deploy
 
-The app deploys to [shinyapps.io](https://www.shinyapps.io/) (or any Shiny
-Server / Posit Connect):
-
-```r
-rsconnect::deployApp()
-```
-
-**Continuous deployment.** Pushing to the default branch automatically deploys
-to <https://ismay.shinyapps.io/ProbApp> via GitHub Actions
-(`.github/workflows/deploy.yaml`). It requires two repository secrets —
-`SHINYAPPS_TOKEN` and `SHINYAPPS_SECRET` (from your shinyapps.io account →
-Tokens). The workflow can also be triggered manually from the Actions tab.
-
-### Static browser build (shinylive → GitHub Pages)
-
-The same app is also published as a fully static, **server-free** build that runs
-entirely in the browser — R compiled to WebAssembly via
-[shinylive](https://posit-dev.github.io/r-shinylive/) — at
-<https://ismayc.github.io/ProbApp/>. A second workflow
-(`.github/workflows/pages.yaml`) exports it and deploys to GitHub Pages on every
-push; no secrets are needed (set **Settings → Pages → Source: GitHub Actions**).
-It is built from the same source — only the runtime files are exported (`renv/`
-and `.Rprofile` are excluded, since they would break webR). Two consequences of
+The app is hosted on GitHub Pages as a fully static, **server-free** build at
+<https://ismayc.github.io/ProbApp/>: R is compiled to WebAssembly and runs in
+the browser via [shinylive](https://posit-dev.github.io/r-shinylive/). Pushing
+to the default branch exports and deploys it through GitHub Actions
+(`.github/workflows/pages.yaml`), and the workflow can also be triggered
+manually from the Actions tab. No secrets are needed (set **Settings → Pages →
+Source: GitHub Actions**). Only the runtime files are exported (`renv/` and
+`.Rprofile` are excluded, since they would break webR). Two consequences of
 running under webR: the first load is heavier (the browser downloads the webR
 runtime, about 33 MB, then caches it), and **"Share link" is omitted** there
 (URL bookmarking can't reach the address bar from inside the shinylive iframe).
@@ -145,10 +127,10 @@ shinylive::export("_app", "_site",
 | `server.R` | reactive logic: validation, plots, and all distribution math |
 | `functions.R` | plot builders (plain lists in the shape plotly.js takes), the palette, `fmtp`, the custom-distribution sandbox/engine, small distribution utilities |
 | `formulas.R` | the MathJax formula reference pages |
-| `global.R` | enables URL bookmarking before the UI/server load; sets `is_webr`, which switches off Share-link/bookmarking in the browser-only build |
+| `global.R` | enables URL bookmarking before the UI/server load; sets `is_webr`, which switches off Share-link/bookmarking in the hosted (browser-only) build |
 | `www/prob-plot.js` | the plot's Shiny output binding: draws the plot with plotly.js and sends click / brush events back |
 | `www/theme.css` | the app's theme as overrides of the stock bslib theme (generated, do not edit) |
 | `tools/build-theme.R` | the theme's settings; regenerates `www/theme.css` (`Rscript tools/build-theme.R`) |
 | `tests/` | testthat suite, coverage harness, and verification audits |
-| `.github/workflows/` | CI (`tests.yaml`) plus two deploys: `deploy.yaml` (shinyapps.io) and `pages.yaml` (shinylive → GitHub Pages) |
+| `.github/workflows/` | CI (`tests.yaml`) and the deploy (`pages.yaml`: shinylive → GitHub Pages) |
 | [`NEWS.md`](NEWS.md) | changelog of all releases |
